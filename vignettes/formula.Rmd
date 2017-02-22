@@ -1,0 +1,96 @@
+fit---
+title: "The Formula of Random-Effect Latent Variable Model"
+author: "Ren-Huai Huang"
+date: "`r Sys.Date()`"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Vignette Title}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+## 1. Latent Variable Model
+
+$X_m =  \mu_m + l_m F + \epsilon_m$   
+
+$\epsilon_m \sim N(0,\sigma^2)$   
+
+$F \sim N(0,1)  \hspace{71pt}$    
+
+
+- $X_m$ :  The standardized observed vriable
+- $\mu_m$ : The offset to the mean
+- $l_m$ : The loading of the latent variable $F$
+- $F$: The latent variable
+- $\epsilon_m$: Normal distributed error 
+- Example: suppose we have a set of 4 observed variables ($m = 1,2,3,4$)  
+$X_1 =  \mu_1 + l_1 F + \epsilon_1$  
+$X_2 =  \mu_2 + l_2 F + \epsilon_2$  
+$X_3 =  \mu_3 + l_3 F + \epsilon_3$  
+$X_4 =  \mu_4 + l_4 F + \epsilon_4$  
+
+
+
+## 2. Weighted Log likelihood  
+
+**For one of the observation $h$:**  
+$LL^{(h)} = \sum_{m=1}^4 (w_m^{(h)} * log( L( X_{m}^{(h)}, \; mean=\mu_{m} + l_{m} * F^{(h)}, sd = \sigma_{m}))) \hspace{35pt}$  
+
+<br />
+**For all observations $(h= 1,2,3,...,H)$:** 
+$LL^{(total)} = \sum_{h=1}^H \sum_{m=1}^4 (w_m^{(h)} * log( L( X_{m}^{(h)}, \; mean=\mu_{m} + l_{m} * F^{(h)}, sd = \sigma_{m}))) \hspace{35pt}$  
+
+- $L$: normal likelihood function
+  
+
+## 3. Random Effect Log Likelihood
+$Random^{(h)} = log(L(F^{(h)}, mean = 0, sd = 1))$
+
+## 4. The Random-Effect Latent Variable Model (Objective Function)     
+
+**The joint log likelihood for one of the observation h** 
+
+$Joint^{(h)} = LL^{(h)} + Random^{(h)}$  
+<center>*or*</center>  
+$Joint^{(h)} = \sum_{m=1}^4 (w_m^{(h)} * log( L( X_{m}^{(h)}, \; mean=\mu_{m} + l_{m} * F^{(h)}, sd = \sigma_{m}))) + log(L(F^{(h)}, mean = 0, sd = 1))$  
+
+
+
+<br />
+**The joint log likelihood for all observations $(h = 1,2,3,...,H)$**  
+
+$Joint^{(Total)} = \sum_{h=1}^{H}(LL^{(h)} + Random^{(h)}) \hspace{40pt}$  
+
+- $H$: The total number of observations  
+
+
+## 5. The corresponding SAS Code  
+    proc nlmixed data=input tech=dbldog qpoints=30 noad;
+        parms mu1-mu7=0;
+
+        array x{*}      x1-x7;
+        array mu{*}     mu1-mu7;
+        array fl{*}     fl1-fl7;
+        array loglik{*} loglik1-loglik7;
+        array w{*}      w1-w7;
+        array err{*}    err1-err7;
+        totloglik = 0;
+        
+        do i=1 to 5; 
+	        if x{i} = . then loglik{i}= 0;
+	           else loglik{i} = w{i} * log(pdf('normal', x{i}, mu{i}+fl{i}*lv, err{i})); 
+            totloglik = loglik{i} + totloglik;
+        end;
+
+        model   id ~ general(totloglik); 
+        random  lv ~ normal(0, 1) subject= id;
+        
+        ods output ParameterEstimates=ParEst;
+        predict lv out=Pred; 
+    run;
+
+
+
+
+
+

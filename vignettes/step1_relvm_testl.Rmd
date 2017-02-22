@@ -1,0 +1,141 @@
+---
+title: "Random Effect Latent Variable Model"
+author: "Ren-Huai Huang"
+date: "`r Sys.Date()`"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Vignette Title}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+
+```{r}
+
+# Prepare to fit
+# start of the cycle
+start_time = Sys.time()
+# data table & weight table
+qpoints   = 30
+set.seed(100)
+idx <-unique(sample(1:4557,300))
+cms300 <- cms2016oct_input[idx,]
+object <- mstbl(cms300)
+group <- "outcome_mort"
+
+df  <- merge(x=object$mstbl_std, y=object$wtbl, all=TRUE)
+subdat    <- relvm:::sub1group(group,df)
+mstbl_std <- subdat$mstbl_std
+wts_tbl   <- subdat$wtbl
+
+# Setup and initialize the parameters
+nc <- ncol(mstbl_std);
+
+init <- unlist(list(mu  = rep(0.5, nc),
+                    fl  = rep(0.5, nc),
+                    err = rep(0.5, nc)))
+```
+
+```{r}
+start_time = Sys.time()
+#--------------------------------------------------------#
+# Fit the function
+fit <- nlm(f      = venll,
+           p     = init,     # Model parameter
+             hessian = FALSE,
+             score   = mstbl_std,
+             wts     = wts_tbl,
+             qpoints = qpoints)
+Sys.time()-start_time
+```
+
+```{R}
+start_time = Sys.time()
+#--------------------------------------------------------#
+# Fit the function
+fit <- optim(par     = init,     # Model parameter
+             fn      = venll,    # Estimation function
+             gr      = NULL,
+             method  = "L-BFGS",
+             control = list(maxit=1000),
+             hessian = FALSE,
+             score   = mstbl_std,
+             wts     = wts_tbl,
+             qpoints = qpoints)
+Sys.time()-start_time
+```
+
+```{r}
+# Vectorized Estimation function
+venll <- function(par,
+                  score = mstbl_std,
+                  wts   = wts_tbl,
+                  qpoints= qpoints) {
+    
+    # Setup the parameters
+    nr <- nrow(score);
+    cc <- pracma::gaussHermite(qpoints);
+    nc <- ncol(score);
+    
+    # Reconstruction of the parameters
+    mu    <- par[gsub("\\d","", names(par)) %in% "mu"]         #
+    fl    <- par[gsub("\\d","", names(par)) %in% "fl"]         # factor loading
+    err   <- par[gsub("\\d","", names(par)) %in% "err"]
+    
+    # For rows of the mstbl_std and wts_tbl
+    coefs  <- sapply(1:nr, function(idx) {
+        # For hessian computation only
+        fn <- function(fv) {
+            means <- mu + fl * fv
+            out1  <- wts_row * (dnorm(score_row, mean=means, sd = err, log=TRUE))
+            out2  <- dnorm(fv, mean=0,sd=1,log=TRUE)
+            -sum(out1,out2,na.rm=TRUE)
+        }
+        # Calculation
+        wts_row   <- as.matrix(wts[idx,])
+        score_row <- as.matrix(score[idx,])
+        (coef   <- sqrt(2 / pracma::hessian(fn,0))) # pracma::hessian or numDeriv::hessian
+    })
+    
+    #
+    fv_m  <- cc$x %o% coefs
+    wts   <- as.matrix(wts)
+    score <- as.matrix(score)
+    
+    # Weighted log likelyhood
+    wts_a   <- aperm(array(wts,  dim=c(nr,nc,qpoints)),c(2,3,1))
+    score_a <- aperm(array(score,dim=c(nr,nc,qpoints)),c(2,3,1))
+    means_a <- array(mu,         dim=c(nc,qpoints,nr)) + fl %o% fv_m
+    
+    wll_m   <- colSums(wts_a * (dnorm(score_a, mean=means_a, sd = err, log=TRUE)),na.rm=TRUE)
+    
+    # Joint probability
+    joint_m <- wll_m +  (dnorm(fv_m, mean=0,sd=1,log=TRUE))
+    
+    # Gaussian quadrature integral approximation
+    # gqi <- log(sum(exp(joint + log(cc$w) +(cc$x)^2),na.rm=TRUE))
+    gqi <- matrixStats::colLogSumExps(joint_m + log(cc$w) +(cc$x)^2,na.rm=TRUE)
+    -sum(log(coefs)+gqi, na.rm=TRUE)
+}
+
+```
+
+
+
+
+```{r}
+set.seed(101)
+N <- 100
+x <- rnorm(N, mean=3,sd = 2)
+mean(x);sd(x)
+nLL <- functuion(mu,sigma) {
+    - sum(dnorm(x,mu,sigma,log=TRUE))
+}
+
+```
+
+
+
+
+
+

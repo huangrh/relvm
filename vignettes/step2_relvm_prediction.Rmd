@@ -1,0 +1,93 @@
+---
+title: "Prediction Of The Group Score From Estimated Parameters"
+author: "Ren-Huai Huang"
+date: "`r Sys.Date()`"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Vignette Title}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r include = FALSE}
+require(readxl)
+require(data.table)
+require(relvm)
+#
+file <- system.file("sasdata/output4557/out_pred4557.csv",package="relvm")
+sas_pred4557 <- fread(file)
+score_tbl    <- subset(sas_pred4557, select = c(paste0("x",1:7)))
+weight_tbl   <- subset(sas_pred4557, select = c(paste0("w",1:7)))
+
+# 
+file <- system.file("sasdata/output4557/out_est4557.csv", package="relvm")
+sas_est4557 <- fread(file)[,.(Parameter, Estimate)]
+mu <- sas_est4557$Estimate[1:7]
+fl <- sas_est4557$Estimate[8:14]
+err <- sas_est4557$Estimate[15:21]
+```
+
+
+```{r}
+# test the prediction function in one row of data
+idx   = 1  
+score_row = score_tbl[idx,]
+weight_row= weight_tbl[idx,]
+fv    = 0
+theta <- list(mu=mu,   # 
+              fl=fl,   #  
+              err =err # 
+              )
+
+# fit the function
+fit <- optim(par     = fv,     # factor variable / latent variable
+             fn      = relvm:::pnll,   # prediction function
+             gr      = NULL,
+             method  = "BFGS",
+             control = list(maxit=5200),
+             hessian = TRUE,
+             score   = score_row,
+             wts     = weight_row,
+             pms     = theta)
+# 
+fit
+```
+
+
+```{r}
+sas_pred4557[idx,]$Pred # SAS output
+fit$par                 # fitted in R
+
+# the standard error of the par
+sas_pred4557[idx,StdErrPred]              # in SAS
+(stderr<- sqrt(diag(solve(fit$hessian)))) # from R
+fit$par + stderr*qnorm(c(0.025,0.975))    # 95% confindence interval in R
+```
+
+
+```{r}
+sas_pred4557[idx,]$Pred
+score_row
+weight_row
+sas_est4557
+```
+
+```{r}
+file <- system.file("sasdata/output4557/out_pred4557.csv",package="relvm")
+sas_pred4557 <- fread(file)
+score_tbl    <- subset(sas_pred4557, select = c(paste0("x",1:7)))
+wts_tbl      <- subset(sas_pred4557, select = c(paste0("w",1:7)))
+
+est4557  <- readRDS(file="C:/rhuang/workspace/R/relvm/inst/extdata/fit4557mort_2017_01_24.rds")
+theta    <- list(mu = est4557$par[1:7],fl=est4557$par[1:7+7],err=est4557$par[1:7+2*7])
+score_tbl
+wts_tbl
+theta
+st <- Sys.time()
+out <- pred(score_tbl=score_tbl,wt_tbl=wts_tbl,pms = theta)
+Sys.time()-st
+out = as.data.frame(out)
+head(data.frame(r=out$pred,sas=sas_pred4557$Pred,diff=out$pred-sas_pred4557$Pred))
+# plot(x=out$pred,y=sas_pred4557$Pred)
+plot(out$pred-sas_pred4557$Pred)
+```
