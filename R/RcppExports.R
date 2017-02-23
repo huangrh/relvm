@@ -10,3 +10,12 @@ timesTwo <- function(x) {
     .Call('relvm_timesTwo', PACKAGE = 'relvm', x)
 }
 
+#' Rcpp Example
+#'
+#' This is an example
+#'
+#' @export
+dnorm_cpp <- function(x, mean = 0, sd = 1) {
+    .Call('relvm_dnorm_cpp', PACKAGE = 'relvm', x, mean, sd)
+}
+

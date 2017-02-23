@@ -13,6 +13,7 @@
 #'
 #' @return An list of S3 object of class "relvm" with estimated parametes.
 #' @seealso \code{\link{mstbl}}
+#' @importFrom pracma hessian
 #'
 #' @export
 #'
@@ -203,8 +204,8 @@ enll <- function(par,
 
 # Vectorized Estimation function
 venll <- function(par,
-                  score = mstbl_std,
-                  wts   = wts_tbl,
+                  score  = mstbl_std,
+                  wts    = wts_tbl,
                   qpoints= qpoints) {
 
     # Setup the parameters

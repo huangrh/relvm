@@ -2,11 +2,12 @@
 
 S3method(predict,relvm)
 S3method(print,relvm)
-export(hello)
+export(dnorm_cpp)
 export(out_dir)
 export(relvm)
 export(relvm_single)
 export(subgroup)
 export(timesTwo)
 importFrom(Rcpp,sourceCpp)
+importFrom(pracma,hessian)
 useDynLib(relvm)
