@@ -45,9 +45,8 @@ dnorm2 <- function(x,mean=0,sd=1) {-(log(2 * pi) +2*log(sd)+((x-mean)/sd)^2)/2}
 ```{r v7, echo = FALSE}
 set.seed(100)
 
-# Vectorized Estimation function
+# speedup Vectorized Estimation function
 venll7 <- function(par,score,wts,cc,qpoints) {
-
     # Reconstruction of the parameters
     nr <- nrow(score); nc <- ncol(score)
     mu    <- par[grepl("mu", names(par))]         #

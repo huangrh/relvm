@@ -17,7 +17,7 @@
 #'
 #' @export
 #'
-relvm <- function(object,groups=NULL, fit=control(qpoints=30,init=NULL,predict=TRUE)) {
+relvm2 <- function(object,groups=NULL, fit=control(qpoints=30,init=NULL,predict=TRUE)) {
 
     # -------------------------------------------------------
     # Prepare to call relvm
@@ -43,7 +43,7 @@ relvm <- function(object,groups=NULL, fit=control(qpoints=30,init=NULL,predict=T
 
     # ------------------------------------------------------------------#
     # Call relvm_single
-    allout <- sapply(groups, relvm_single, df=alldf, qpoints=qpoints,
+    allout <- sapply(groups, relvm_single2, df=alldf, qpoints=qpoints,
                       init = init, predict = predict, simplify = FALSE)
 
     # ------------------------------------------------------------------#
@@ -81,12 +81,12 @@ control <- function(qpoints = 30,init=NULL,predict=TRUE){
 #'
 #' @return An object of S3 class "relvm" with estimated parametes.
 #'
-#' @export
 #'
-relvm_single <- function(group, df = alldf,
-                         qpoints   = 30,
-                         init      = NULL,
-                         predict   = TRUE) {
+#'
+relvm_single2 <- function(group, df = alldf,
+                          qpoints   = 30,
+                          init      = NULL,
+                          predict   = TRUE) {
     # -------------------------------------------------------#
     # Prepare to fit
     # start of the cycle
@@ -95,27 +95,29 @@ relvm_single <- function(group, df = alldf,
 
     # data table & weight table
     subdat    <- sub1group(group,df)
-    mstbl_std <- subdat$mstbl_std
-    wts_tbl   <- subdat$wtbl
+    mstbl_std <- as.matrix(subdat$mstbl_std)
+    wts_tbl   <- as.matrix(subdat$wtbl)
 
     # Setup and initialize the parameters
     nc <- ncol(mstbl_std);
     if (is.null(init)) {
         init <- unlist(list(mu  = rep(0.5, nc),
                             fl  = rep(0.5, nc),
-                            err = rep(0.5, nc)))
-    }
+                            err = rep(0.5, nc)))}
+    # cc$x & cc$w
+    cc <- pracma::gaussHermite(qpoints);
 
     #--------------------------------------------------------#
     # Fit the function
     fit <- optim(par     = init,     # Model parameter
-                 fn      = venll,    # Estimation function
+                 fn      = venll7,    # Estimation function
                  gr      = NULL,
                  method  = "L-BFGS-B",
                  control = list(maxit=1000),
                  hessian = FALSE,
                  score   = mstbl_std,
                  wts     = wts_tbl,
+                 cc =cc,
                  qpoints = qpoints)
 
     #--------------------------------------------------------#
@@ -123,7 +125,7 @@ relvm_single <- function(group, df = alldf,
     #
     # Format fit$par
     theta_names <- names(fit$par);
-    fit$par     <- data.frame(name = names(mstbl_std),
+    fit$par     <- data.frame(name = names(subdat$mstbl_std),
                               mu = fit$par[grepl("mu", theta_names)],
                               fl = fit$par[grepl("fl", theta_names)],
                               err= fit$par[grepl("err",theta_names)],
@@ -137,7 +139,7 @@ relvm_single <- function(group, df = alldf,
 
     # Add three fields to the output
     init_names  <- names(init);
-    fit$init    <- data.frame(name = names(mstbl_std),
+    fit$init    <- data.frame(name = names(subdat$mstbl_std),
                               mu = init[grepl("mu", init_names)],
                               fl = init[grepl("fl", init_names)],
                               err= init[grepl("err",init_names)], row.names=NULL)
@@ -149,113 +151,10 @@ relvm_single <- function(group, df = alldf,
     structure(fit,class="relvm")
 }
 
-# Estimation function
-enll <- function(par,
-                 score = mstbl_std,
-                 wts   = wts_tbl,
-                 qpoints= qpoints) {
+# speed up the normal density function.
+dnorm2 <- function(x,mean=0,sd=1) -(log(2 * pi) +2*log(sd)+((x-mean)/sd)^2)/2
 
-    # Setup the parameters
-    nr <- nrow(score);
-    cc <- pracma::gaussHermite(qpoints);
-    nc <- ncol(score);
-
-    # Reconstruction of the parameters
-    mu    <- par[gsub("\\d","", names(par)) %in% "mu"]         #
-    fl    <- par[gsub("\\d","", names(par)) %in% "fl"]         # factor loading
-    err   <- par[gsub("\\d","", names(par)) %in% "err"]
-
-    # For rows of the mstbl_std and wts_tbl
-    out  <- sapply(1:nr, function(idx) {
-
-        # Calculation
-        wts_row   <- as.matrix(wts[idx,])
-        score_row <- as.matrix(score[idx,])
-
-        # For hessian computation only
-        fn <- function(fv) {
-            means <- mu + fl * fv
-            out1  <- wts_row * (dnorm(score_row, mean=means, sd = err, log=TRUE))
-            out2  <- dnorm(fv, mean=0,sd=1,log=TRUE)
-            -sum(out1,out2,na.rm=TRUE)
-        }
-        coef   <- sqrt(2) * numDeriv::hessian(fn, x=0)^(-1/2)
-        fv     <- coef * cc$x
-
-        # Weighted log likelyhood
-        wts_m     <- matrix(wts_row,  nrow=qpoints, ncol=nc,byrow=TRUE)
-        score_m   <- matrix(score_row,nrow=qpoints, ncol=nc,byrow=TRUE)
-        means_m   <- matrix(mu,       nrow=qpoints, ncol=nc,byrow=TRUE) + fv %o% fl
-        err_m     <- matrix(err,      nrow=qpoints, ncol=nc,byrow=TRUE)
-
-        wll   <- rowSums(wts_m * (dnorm(score_m, mean=means_m, sd = err_m, log=TRUE)),na.rm=TRUE)
-
-        # Joint probability
-        joint <- wll +  (dnorm(fv, mean=0,sd=1,log=TRUE))
-
-        # Gaussian quadrature integral approximation
-        # gqi <- log(sum(exp(joint + log(cc$w) +(cc$x)^2),na.rm=TRUE))
-        gqi <- matrixStats::logSumExp(joint + log(cc$w) +(cc$x)^2,na.rm=TRUE)
-        gqi <- log(coef) + gqi
-    })
-
-    -sum(out)
-}
-
-# Vectorized Estimation function
-venll <- function(par,
-                  score  = mstbl_std,
-                  wts    = wts_tbl,
-                  qpoints= qpoints) {
-
-    # Setup the parameters
-    nr <- nrow(score);
-    cc <- pracma::gaussHermite(qpoints);
-    nc <- ncol(score);
-
-    # Reconstruction of the parameters
-    mu    <- par[gsub("\\d","", names(par)) %in% "mu"]         #
-    fl    <- par[gsub("\\d","", names(par)) %in% "fl"]         # factor loading
-    err   <- par[gsub("\\d","", names(par)) %in% "err"]
-
-    # For rows of the mstbl_std and wts_tbl
-    coefs  <- sapply(1:nr, function(idx) {
-        # For hessian computation only
-        fn <- function(fv) {
-            means <- mu + fl * fv
-            out1  <- wts_row * (dnorm(score_row, mean=means, sd = err, log=TRUE))
-            out2  <- dnorm(fv, mean=0,sd=1,log=TRUE)
-            -sum(out1,out2,na.rm=TRUE)
-        }
-        # Calculation
-        wts_row   <- as.matrix(wts[idx,])
-        score_row <- as.matrix(score[idx,])
-        (coef   <- sqrt(2 / pracma::hessian(fn,0))) # pracma::hessian or numDeriv::hessian
-    })
-
-    #
-    fv_m  <- cc$x %o% coefs
-    wts   <- as.matrix(wts)
-    score <- as.matrix(score)
-
-    # Weighted log likelyhood
-    wts_a   <- aperm(array(wts,  dim=c(nr,nc,qpoints)),c(2,3,1))
-    score_a <- aperm(array(score,dim=c(nr,nc,qpoints)),c(2,3,1))
-    means_a <- array(mu,         dim=c(nc,qpoints,nr)) + fl %o% fv_m
-
-    wll_m   <- colSums(wts_a * (dnorm(score_a, mean=means_a, sd = err, log=TRUE)),na.rm=TRUE)
-
-    # Joint probability
-    joint_m <- wll_m +  (dnorm(fv_m, mean=0,sd=1,log=TRUE))
-
-    # Gaussian quadrature integral approximation
-    # gqi <- log(sum(exp(joint + log(cc$w) +(cc$x)^2),na.rm=TRUE))
-    gqi <- matrixStats::colLogSumExps(joint_m + log(cc$w) +(cc$x)^2,na.rm=TRUE)
-    -sum(log(coefs)+gqi, na.rm=TRUE)
-}
-
-
-# speedup Vectorized Estimation function
+# Speedup Vectorized Estimation function
 venll7 <- function(par,score,wts,cc,qpoints) {
 
     # Reconstruction of the parameters

@@ -9,79 +9,6 @@ vignette: >
   %\VignetteEncoding{UTF-8}
 ---
 
-
-
-
-
-```{r}
-#-----------------------------------------------------------
-
-
-# 
-file = system.file("output244/out_est.csv",package="relvm")
-out_est <- read.csv(file)
-mu <- out_est$Estimate[1:7]
-fl <- out_est$Estimate[(1:7)+7]
-err<- out_est$Estimate[(1:7)+2*7]
-est_par <- unlist(list(mu=mu,fl=fl,err=err))
-relvm:::enll(par=init,   score=score244,wts=wts244)
-relvm:::enll(par=est_par,score=score244,wts=wts244)
-
-
-# fit <- optim(par     = init,     # factor variable / latent variable
-#              fn      = relvm:::enll,   # prediction function
-#              gr      = NULL,
-#              method  = "L-BFGS-B",
-#              #lower   = low,
-#              # upper   = up,
-#              control = list(maxit=5200,trace=1),
-#              hessian = FALSE,
-#              score   = score244,
-#              wts     = wts244)
-
-```
-
-
-```{r}
-# Test the estimated negative log likelihood 
-file = system.file("output4557/out_est.csv",package="relvm")
-out_est4557 <- read.csv(file)
-mu4557 <- out_est4557$Estimate[1:7]
-fl4557 <- out_est4557$Estimate[(1:7)+7]
-err4557<- out_est4557$Estimate[(1:7)+2*7]
-est_par4557 <- unlist(list(mu=mu4557,fl=fl4557,err=err4557))
-
-# 
-file = system.file("output4557/out_pred.csv",package="relvm")
-out_pred=read.csv(file)
-score4557 <- out_pred[,paste0("x",1:7)];head(score4557)
-wts4557<- out_pred[,paste0("w",1:7)];head(weight4557)
-
-# 
-nr <- nrow(score4557);
-nc <- ncol(score4557);
-qpoints=30; cc <- pracma::gaussHermite(qpoints)
-#
-init <- unlist(list(mu=rep(0,7),fl=rep(1,7),err=rep(1,7)))
-relvm:::enll(par=init,       score=score4557,wts=weight4557)
-relvm:::enll(par=est_par4557,score=score4557,wts=weight4557)
-
-#
-init <- unlist(list(mu=rep(0,7),fl=rep(1,7),err=rep(1,7)))
-
-fit <- optim(par     = init,     # factor variable / latent variable
-             fn      = relvm:::enll,   # prediction function
-             gr      = NULL,
-             method  = "L-BFGS-B",
-             control = list(maxit=5200,trace=1),
-             hessian = FALSE,
-             score   = score4557,
-             wts     = wts4557)
-
-saveRDS(fit, file="C:/rhuang/workspace/R/relvm/inst/extdata/fit4557mort_2017_01_24.rds")
-
-```
-
 ```{r test_170221}
 require(rstarating); require(relvm)
 set.seed(100)
@@ -91,13 +18,18 @@ x <- mstbl(cms300)
 fit <- relvm(x,c("outcome_mort"))
 ```
 
+```{r test_170223}
+require(rstarating); require(relvm)
+set.seed(100)
+idx <-unique(sample(1:4557,300))
+cms300 <- cms2016oct_input[idx,]
+x <- mstbl(cms300)
+fit <- relvm2(x,c("outcome_mort"))
+```
+
+
 ```{r}
 fit <- relvm(x,c("outcome_mort","outcome_safty"))
 ```
 
-```{r}
-x=fit$outcome_mort$pred
-y=fit$outcome_safty$pred
-merge(x,y,by="provider_id",all=TRUE)
-```
 
