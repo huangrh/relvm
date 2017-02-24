@@ -23,7 +23,7 @@ require(rstarating); require(relvm)
 set.seed(100)
 idx <-unique(sample(1:4557,300))
 cms300 <- cms2016oct_input[idx,]
-x <- mstbl(cms300)
+x300 <- mstbl(cms300)
 fit <- relvm2(x,c("outcome_mort"))
 ```
 
