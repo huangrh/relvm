@@ -9,3 +9,4 @@ lhs \%>\% rhs
 \description{
 Pipe function from magrittr package.
 }
+

@@ -9,3 +9,4 @@ dnorm_cpp(x, mean = 0, sd = 1)
 \description{
 This is an example
 }
+

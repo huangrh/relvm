@@ -3,7 +3,6 @@
 \docType{package}
 \name{relvm}
 \alias{relvm}
-\alias{relvm}
 \alias{relvm-package}
 \title{Multiple Estimation Of The Random Effect Latent Variable Model Parameters}
 \usage{
@@ -33,3 +32,4 @@ relvm.
 \seealso{
 \code{\link{mstbl}}
 }
+

@@ -15,3 +15,4 @@ A directory string.
 \description{
 Check the input string as a directory. Create a directory if it doesn't exists.
 }
+

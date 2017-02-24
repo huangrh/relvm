@@ -28,3 +28,4 @@ Estimate multiple groups of the random effect latent variable model
 \seealso{
 \code{\link{mstbl}}
 }
+
