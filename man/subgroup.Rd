@@ -22,4 +22,3 @@ Prepare the subset of the data table and weight table in each measure group
 in CMS Hospital Compare star rating. In addition, the hospital is removed if
 the hospital didn't report any data in the group.
 }
-

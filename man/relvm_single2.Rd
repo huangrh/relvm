@@ -26,4 +26,3 @@ An object of S3 class "relvm" with estimated parametes.
 \description{
 Estimate the random effect latent variable model
 }
-

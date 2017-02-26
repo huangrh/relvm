@@ -1,4 +1,4 @@
-#' Group Score Prediction
+#' Group Score Prediction Interface
 #'
 #' Predict the group scores (random effect latent variabl) from the extimated
 #' parameters
@@ -12,36 +12,38 @@
 #' @export
 #'
 predict.relvm <- function(object,newdata,level = 0.95){
+    object$tag  <- "predict.relvm"
 
     if (missing(newdata) || is.null(newdata)) {
-        score_tbl <- object$score_tbl
-        wts_tbl   <- object$wts_tbl
+        score_tbl <- as.data.frame(object$mstbl_std)
+        wts_tbl   <- as.data.frame(object$wtbl)
+    }
+    measure_idx <- rstarating::measure(score_tbl)
+    score_tbl <- as.matrix(score_tbl[measure_idx])
+    wts_tbl   <- as.matrix(wts_tbl[paste(measure_idx,"wt",sep="_")])
+
+    object$pred <- pred(score_tbl,wts_tbl,pms = object$par)
+    if (exists("provider_id",as.data.frame(object$mstbl_std))) {
+        object$pred <- cbind(as.data.frame(object$mstbl_std)["provider_id"],object$pred)
     }
 
-    par_names <- names(object$par);
-    theta <- list(mu = object$par[grepl("mu", par_names)],
-                  fl = object$par[grepl("fl", par_names)],
-                  err= object$par[grepl("err",par_names)])
-
-    object$pred <- pred(score_tbl,wts_tbl,pms=theta)
-    object$tag <- "test"
     object
 }
 
-#
-pred <- function(score_tbl = data_tbl$score,
-                 wts_tbl   = data_tbl$wts,
-                 pms       = theta){
+#' Group Score Prediction
+#'
+#' @param score_tbl A matrix of standadized measure scores.
+#' @param wts_tbl A matrix of weights.
+#' @
+#'
+pred <- function(score_tbl,wts_tbl,pms){
 
     len = nrow(score_tbl);
-    score_tbl<- as.matrix(score_tbl)
-    wts_tbl   <- as.matrix(wts_tbl)
     par = stderr = c()
 
     out <- as.data.frame(sapply(1:len, function(idx) {
         score_row    <- score_tbl[idx,]
         weight_row   <- wts_tbl[idx,]
-
 
         # fit the function
         fv <- 1;
@@ -51,8 +53,8 @@ pred <- function(score_tbl = data_tbl$score,
                      method  = "BFGS",
                      control = list(maxit=5200),
                      hessian = TRUE,
-                     score   = score_row,
-                     wts     = weight_row,
+                     score_row   = score_row,
+                     wts_row     = weight_row,
                      pms     = pms)
 
         c( fit$par,sqrt(diag(solve(fit$hessian))))
@@ -63,21 +65,17 @@ pred <- function(score_tbl = data_tbl$score,
 }
 
 
-# Prediction Function
-pnll <- function(fv,
-                 score = score_row,
-                 wts   = weight_row,
-                 pms   = theta) {
+# Prediction negLogLik Function
+pnll <- function(fv, score_row, wts_row, pms) {
 
     # Reconstruction of the parameters
     mu    <- pms$mu         #
     fl    <- pms$fl         # factor loading
     err   <- pms$err        #
-    score <- as.matrix(score)
-    wts   <- as.matrix(wts)
+
     # negtive log likelyhood
     means <- mu + fl * fv
-    out1  <- wts * (dnorm(score, mean=means, sd = err, log=TRUE))
+    out1  <- wts_row * (dnorm(score_row, mean=means, sd = err, log=TRUE))
     out2  <- dnorm(fv, mean=0,sd=1,log=TRUE)
 
     -sum(out1,out2,na.rm=TRUE)

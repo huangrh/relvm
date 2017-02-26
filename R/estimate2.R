@@ -56,8 +56,18 @@ relvm2 <- function(object,groups=NULL, fit=control(qpoints=30,init=NULL,predict=
     pars <- data.frame()
     for (group in allout) {pars = rbind(pars,group$par)}
 
+    # convergence
+    convergence<- data.frame(convergence=vapply(allout,function(x) {x$convergence},c(0)))
+    value      <- data.frame(value=vapply(allout,  function(x) x$value,c(0)))
+    message    <- data.frame(message=vapply(allout,function(x) x$message,"0"),stringsAsFactors = FALSE)
+    counts     <- t(as.data.frame(vapply(allout,   function(x) x$counts,c(0L,0L))))
+
     #output
-    allout$groups <- structure(list(preds=preds,pars=pars),class="relvm")
+    allout$groups <- structure(list(preds=preds,pars=pars,
+                                    counts= as.matrix(counts),
+                                    value = as.matrix(value),
+                                    message=as.matrix(message),
+                                    convergence = as.matrix(convergence)),class="relvm")
     (allout)
 }
 
@@ -81,8 +91,6 @@ control <- function(qpoints = 30,init=NULL,predict=TRUE){
 #'
 #' @return An object of S3 class "relvm" with estimated parametes.
 #'
-#'
-#'
 relvm_single2 <- function(group, df = alldf,
                           qpoints   = 30,
                           init      = NULL,
@@ -91,7 +99,7 @@ relvm_single2 <- function(group, df = alldf,
     # Prepare to fit
     # start of the cycle
     start_time = Sys.time()
-    cat("Fitting:",group,"=>")
+    cat(sprintf("Fitting: %-15s =>",group))
 
     # data table & weight table
     subdat    <- sub1group(group,df)
@@ -109,7 +117,7 @@ relvm_single2 <- function(group, df = alldf,
 
     #--------------------------------------------------------#
     # Fit the function
-    fit <- optim(par     = init,     # Model parameter
+    fit <- optim(par     = init,      # Model parameter
                  fn      = venll7,    # Estimation function
                  gr      = NULL,
                  method  = "L-BFGS-B",
@@ -117,7 +125,7 @@ relvm_single2 <- function(group, df = alldf,
                  hessian = FALSE,
                  score   = mstbl_std,
                  wts     = wts_tbl,
-                 cc =cc,
+                 cc      = cc,
                  qpoints = qpoints)
 
     #--------------------------------------------------------#
@@ -126,8 +134,8 @@ relvm_single2 <- function(group, df = alldf,
     # Format fit$par
     theta_names <- names(fit$par);
     fit$par     <- data.frame(name = names(subdat$mstbl_std),
-                              mu = fit$par[grepl("mu", theta_names)],
                               fl = fit$par[grepl("fl", theta_names)],
+                              mu = fit$par[grepl("mu", theta_names)],
                               err= fit$par[grepl("err",theta_names)],
                               row.names=NULL)
     # Prediction
@@ -140,25 +148,26 @@ relvm_single2 <- function(group, df = alldf,
     # Add three fields to the output
     init_names  <- names(init);
     fit$init    <- data.frame(name = names(subdat$mstbl_std),
-                              mu = init[grepl("mu", init_names)],
                               fl = init[grepl("fl", init_names)],
+                              mu = init[grepl("mu", init_names)],
                               err= init[grepl("err",init_names)], row.names=NULL)
+
     fit$mstbl_std = cbind(subdat$pid,mstbl_std)
     fit$wtbl      = cbind(subdat$pid,wts_tbl)
 
     # Output
-    cat("\tTime:",Sys.time() - start_time,"\n")
+    cat(" : ", as.character.Date(Sys.time() - start_time),"\n")
     structure(fit,class="relvm")
 }
 
-# speed up the normal density function.
+# Simplified normal density function.
 dnorm2 <- function(x,mean=0,sd=1) -(log(2 * pi) +2*log(sd)+((x-mean)/sd)^2)/2
 
-# Speedup Vectorized Estimation function
+# Fast Vectorized Estimation function
 venll7 <- function(par,score,wts,cc,qpoints) {
 
     # Reconstruction of the parameters
-    nr <- nrow(score); nc <- ncol(score)
+    nr    <- nrow(score); nc <- ncol(score)
     mu    <- par[grepl("mu", names(par))]         #
     fl    <- par[grepl("fl", names(par))]         # factor loading
     err   <- par[grepl("err", names(par))]

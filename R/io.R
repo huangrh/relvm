@@ -29,6 +29,7 @@ print.relvm <- function(object,...) {
 #'
 #' @export
 out_dir <- function(x) {
+    #x <- gsub("\\","/",x)
     if (!dir.exists(x)) dir.create(x,recursive=TRUE)
     x
 }

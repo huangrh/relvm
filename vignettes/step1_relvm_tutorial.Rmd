@@ -32,4 +32,13 @@ fit <- relvm2(x,c("outcome_mort"))
 fit <- relvm(x,c("outcome_mort","outcome_safty"))
 ```
 
+```{r test_170223}
+require(rstarating); require(relvm)
+set.seed(100)
+
+x <- mstbl(cms2016oct_input)
+fit <- relvm2(x)
+outdir <- out_dir("C:/rhuang/workspace/R/rstarating/inst/Oct2016/r/stage2_out\\out8")
+saveRDS(fit, file=file.path(outdir,paste0("cms2016oct_relvm",Sys.Date(),".rds")))
+```
 

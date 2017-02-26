@@ -21,4 +21,3 @@ A data.frame containing pred and stderr. pred is the predicted group score.
 Predict the group scores (random effect latent variabl) from the extimated
 parameters
 }
-
