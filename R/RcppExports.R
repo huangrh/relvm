@@ -19,3 +19,21 @@ dnorm_cpp <- function(x, mean = 0, sd = 1) {
     .Call('relvm_dnorm_cpp', PACKAGE = 'relvm', x, mean, sd)
 }
 
+#' Array
+#'
+#' Array in rcpp
+#'
+#' @export
+arrayC <- function(input, dim) {
+    .Call('relvm_arrayC', PACKAGE = 'relvm', input, dim)
+}
+
+#' Prediction negLogLik Function
+#'
+#' Prediction negLogLik Function used in in pred function in pred.R
+#'
+#' @export
+pnll_cpp <- function(fv, score_row, wts_row, err, mu, fl) {
+    .Call('relvm_pnll_cpp', PACKAGE = 'relvm', fv, score_row, wts_row, err, mu, fl)
+}
+

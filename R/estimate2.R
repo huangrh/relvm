@@ -17,7 +17,7 @@
 #'
 #' @export
 #'
-relvm2 <- function(object,groups=NULL, fit=control(qpoints=30,init=NULL,predict=TRUE)) {
+relvm2 <- function(object,groups=NULL, fit=control(qpoints=30,init=NULL,predict=TRUE,adaptive="noad")) {
 
     # -------------------------------------------------------
     # Prepare to call relvm
@@ -34,11 +34,12 @@ relvm2 <- function(object,groups=NULL, fit=control(qpoints=30,init=NULL,predict=
 
     # control
     if (is.null(fit)) {
-        qpoints = 30; init = NULL; predict =TRUE
+        qpoints = 30; init = NULL; predict =TRUE;adaptive="noad"
     } else {
         qpoints = fit$qpoints
         init    = fit$init
         predict = fit$predict
+        adaptive= fit$adaptive
     }
 
     # ------------------------------------------------------------------#
@@ -72,8 +73,8 @@ relvm2 <- function(object,groups=NULL, fit=control(qpoints=30,init=NULL,predict=
 }
 
 # Set the relvm fitting control parametes.
-control <- function(qpoints = 30,init=NULL,predict=TRUE){
-    {(control <- list(qpoints=qpoints,init=init,predict=predict))}
+control <- function(qpoints = 30,init=NULL,predict=TRUE,adaptive="noad"){
+    {(control <- list(qpoints=qpoints,init=init,predict=predict,adaptive=adaptive))}
 }
 
 
@@ -118,7 +119,7 @@ relvm_single2 <- function(group, df = alldf,
     #--------------------------------------------------------#
     # Fit the function
     fit <- optim(par     = init,      # Model parameter
-                 fn      = venll7,    # Estimation function
+                 fn      = venll10a,    # Estimation function
                  gr      = NULL,
                  method  = "L-BFGS-B",
                  control = list(maxit=1000),
@@ -126,7 +127,8 @@ relvm_single2 <- function(group, df = alldf,
                  score   = mstbl_std,
                  wts     = wts_tbl,
                  cc      = cc,
-                 qpoints = qpoints)
+                 qpoints = qpoints,
+                 adaptive=adaptive)
 
     #--------------------------------------------------------#
     # Output the fitting
@@ -163,6 +165,47 @@ relvm_single2 <- function(group, df = alldf,
 # Simplified normal density function.
 dnorm2 <- function(x,mean=0,sd=1) -(log(2 * pi) +2*log(sd)+((x-mean)/sd)^2)/2
 
+# adaptive estimate function
+venll10a <- function(par,score,wts,cc,qpoints,adaptive) {
+    # Reconstruction of the parameters
+    nr <- nrow(score); nc <- ncol(score)
+    mu <- par[grepl("mu", names(par))]         #
+    fl <- par[grepl("fl", names(par))]         # factor loading
+    err<- par[grepl("err", names(par))]
+
+    # Sigma
+    sigma <- switch(adaptive,
+                    ad = {
+                        fitall <- relvm:::pred(score_tbl=score, wts_tbl=wts, pms=list(mu=mu,fl=fl,err=err));
+                        u_hat  <- t(array(fitall[,"pred"],dim=c(nr,qpoints)));
+                        fitall[,"stderr"];},
+                    noad= {
+                        u_hat <- array(0,dim=c(qpoints,nr));
+                        sqrt(1/(rowSums((fl^2 * wts/err^2), na.rm = TRUE) + 1));})
+
+    coefs <- 1.41421356237 * sigma # sqrt(2) = 1.4142
+    # coefs <- rep(mean(coefs),length(coefs))
+
+    # fv matrix
+    fv_mtx  <-  cc$x %o% coefs + u_hat
+
+    # 3D array:
+    wts_arr   <- aperm(array(wts,  dim=c(nr,nc,qpoints)),c(2,3,1))
+    score_arr <- aperm(array(score,dim=c(nr,nc,qpoints)),c(2,3,1))
+    means_arr <- array(mu,         dim=c(nc,qpoints,nr)) + fl %o% fv_mtx
+
+    # Weighted log likelyhood
+    wll_mtx   <- colSums(wts_arr * dnorm2(score_arr, mean=means_arr, sd = err),na.rm=TRUE)
+
+    # Joint probability
+    joint_mtx <- wll_mtx +  dnorm_cpp(fv_mtx, mean=0,sd=1)
+
+    # Gaussian quadrature integral approximation
+    gqi <- matrixStats::colLogSumExps(joint_mtx + log(cc$w) +(cc$x)^2,na.rm=TRUE)
+    -sum(log(coefs)+gqi, na.rm=TRUE)
+}
+
+
 # Fast Vectorized Estimation function
 venll7 <- function(par,score,wts,cc,qpoints) {
 
@@ -193,3 +236,5 @@ venll7 <- function(par,score,wts,cc,qpoints) {
     gqi <- matrixStats::colLogSumExps(joint_mtx + log(cc$w) +(cc$x)^2,na.rm=TRUE)
     -sum(log(coefs)+gqi, na.rm=TRUE)
 }
+
+

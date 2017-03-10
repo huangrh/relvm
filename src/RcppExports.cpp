@@ -29,3 +29,31 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
+// arrayC
+NumericVector arrayC(NumericVector input, IntegerVector dim);
+RcppExport SEXP relvm_arrayC(SEXP inputSEXP, SEXP dimSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< NumericVector >::type input(inputSEXP);
+    Rcpp::traits::input_parameter< IntegerVector >::type dim(dimSEXP);
+    rcpp_result_gen = Rcpp::wrap(arrayC(input, dim));
+    return rcpp_result_gen;
+END_RCPP
+}
+// pnll_cpp
+double pnll_cpp(double fv, NumericVector score_row, NumericVector wts_row, NumericVector err, NumericVector mu, NumericVector fl);
+RcppExport SEXP relvm_pnll_cpp(SEXP fvSEXP, SEXP score_rowSEXP, SEXP wts_rowSEXP, SEXP errSEXP, SEXP muSEXP, SEXP flSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< double >::type fv(fvSEXP);
+    Rcpp::traits::input_parameter< NumericVector >::type score_row(score_rowSEXP);
+    Rcpp::traits::input_parameter< NumericVector >::type wts_row(wts_rowSEXP);
+    Rcpp::traits::input_parameter< NumericVector >::type err(errSEXP);
+    Rcpp::traits::input_parameter< NumericVector >::type mu(muSEXP);
+    Rcpp::traits::input_parameter< NumericVector >::type fl(flSEXP);
+    rcpp_result_gen = Rcpp::wrap(pnll_cpp(fv, score_row, wts_row, err, mu, fl));
+    return rcpp_result_gen;
+END_RCPP
+}

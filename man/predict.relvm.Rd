@@ -2,7 +2,7 @@
 % Please edit documentation in R/pred.R
 \name{predict.relvm}
 \alias{predict.relvm}
-\title{Group Score Prediction}
+\title{Group Score Prediction Interface}
 \usage{
 \method{predict}{relvm}(object, newdata, level = 0.95)
 }

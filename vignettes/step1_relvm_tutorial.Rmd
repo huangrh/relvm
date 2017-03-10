@@ -9,20 +9,13 @@ vignette: >
   %\VignetteEncoding{UTF-8}
 ---
 
-```{r test_170221}
-require(rstarating); require(relvm)
-set.seed(100)
-idx <-unique(sample(1:4557,300))
-cms300 <- cms2016oct_input[idx,]
-x <- mstbl(cms300)
-fit <- relvm(x,c("outcome_mort"))
-```
 
 ```{r test_170223}
 require(rstarating); require(relvm)
 set.seed(100)
 idx <-unique(sample(1:4557,300))
 cms300 <- cms2016oct_input[idx,]
+
 x300 <- mstbl(cms300)
 fit <- relvm2(x,c("outcome_mort"))
 ```
@@ -38,7 +31,18 @@ set.seed(100)
 
 x <- mstbl(cms2016oct_input)
 fit <- relvm2(x)
-outdir <- out_dir("C:/rhuang/workspace/R/rstarating/inst/Oct2016/r/stage2_out\\out8")
-saveRDS(fit, file=file.path(outdir,paste0("cms2016oct_relvm",Sys.Date(),".rds")))
+# outdir <- out_dir("C:/rhuang/workspace/R/rstarating/inst/Oct2016/r/stage2_out\\out8")
+# saveRDS(fit, file=file.path(outdir,paste0("cms2016oct_relvm",Sys.Date(),".rds")))
+
+# Load loading table
+file_dir <- "C:/rhuang/Projects/star_rating/cms_lvm_loading"
+dat <- read.csv(file=file.path(file_dir,"cms_lvmLoading_2016.csv"))
+dat$name <- tolower(dat$name)
+dat$name <- gsub("-|/","_",dat$name)
+
+fit$groups$pars$name <- gsub("_linear","",fit$groups$pars$name)
+
+all <- merge(y=fit$groups$pars,x=dat,by="name",all=TRUE)
+all <- all[c("name","group","oct2016","fl")]
 ```
 

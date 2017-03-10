@@ -20,6 +20,10 @@ score_tbl    <- subset(sas_pred4557, select = c(paste0("x",1:7)))
 weight_tbl   <- subset(sas_pred4557, select = c(paste0("w",1:7)))
 
 # 
+score_tbl <- as.matrix(score_tbl)
+weight_tbl<- as.matrix(weight_tbl)
+
+# 
 file <- system.file("sasdata/output4557/out_est4557.csv", package="relvm")
 sas_est4557 <- fread(file)[,.(Parameter, Estimate)]
 mu <- sas_est4557$Estimate[1:7]
@@ -31,8 +35,8 @@ err <- sas_est4557$Estimate[15:21]
 ```{r}
 # test the prediction function in one row of data
 idx   = 1  
-score_row = score_tbl[idx,]
-weight_row= weight_tbl[idx,]
+score_row = as.matrix(score_tbl[idx,])
+weight_row= as.matrix(weight_tbl[idx,])
 fv    = 0
 theta <- list(mu=mu,   # 
               fl=fl,   #  
@@ -51,6 +55,8 @@ fit <- optim(par     = fv,     # factor variable / latent variable
              pms     = theta)
 # 
 fit
+
+fitall <- relvm:::pred(score_tbl=score_tbl, wts_tbl=weight_tbl,pms=theta)
 ```
 
 
@@ -91,3 +97,49 @@ head(data.frame(r=out$pred,sas=sas_pred4557$Pred,diff=out$pred-sas_pred4557$Pred
 # plot(x=out$pred,y=sas_pred4557$Pred)
 plot(out$pred-sas_pred4557$Pred)
 ```
+
+```{r}
+    out <- as.data.frame(sapply(1:len, function(idx) {
+        score_row    <- score_tbl[idx,]
+        weight_row   <- wts_tbl[idx,]
+
+        # fit the function
+        fv <- 1;
+        fit <- optim(par     = fv,     # factor variable / latent variable
+                     fn      = pnll,   # prediction function
+                     gr      = NULL,
+                     method  = "BFGS",
+                     control = list(maxit=5200),
+                     hessian = TRUE,
+                     score_row = score_row,
+                     wts_row = weight_row,
+                     pms     = pms)
+
+        c( fit$par,1/sqrt(fit$hessian))
+    }))
+```
+
+```{r}
+    out <- (vapply(1:len, function(idx) {
+        score_row    <- score_tbl[idx,]
+        weight_row   <- wts_tbl[idx,]
+
+        # fit the function
+        fv <- 1;
+        fit <- optim(par     = fv,     # factor variable / latent variable
+                     fn      = pnll,   # prediction function
+                     gr      = NULL,
+                     method  = "BFGS",
+                     control = list(maxit=5200),
+                     hessian = TRUE,
+                     score_row = score_row,
+                     wts_row = weight_row,
+                     pms     = pms)
+
+        c( fit$par,1/sqrt(fit$hessian))
+    },FUN.VALUE=numeric(2)))
+
+rownames(out) <- c("pred","stderr")
+out[,1:5]
+```
+
