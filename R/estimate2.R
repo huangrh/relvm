@@ -17,10 +17,10 @@
 #'
 #' @export
 #'
-relvm2 <- function(object,groups=NULL, fit=control(qpoints=30,init=NULL,predict=TRUE,adaptive="noad")) {
+relvm2 <- function(object,groups=NULL, fit=control(qpoints=30,init=NULL,predict=TRUE,adaptive=c("noad","ad"))) {
 
     # -------------------------------------------------------
-    # Prepare to call relvm
+    # Merge both tables of the measure score and weights.
     alldf  <- merge(x=object$mstbl_std, y=object$wtbl, all=TRUE)
 
     # Check & update "groups"
@@ -32,25 +32,25 @@ relvm2 <- function(object,groups=NULL, fit=control(qpoints=30,init=NULL,predict=
         groups <- groups[groups %in% all_groups]
     } else stop("The group name do not match.")
 
-    # control
+    # Fit control
     if (is.null(fit)) {
         qpoints = 30; init = NULL; predict =TRUE;adaptive="noad"
     } else {
-        qpoints = fit$qpoints
-        init    = fit$init
-        predict = fit$predict
-        adaptive= fit$adaptive
+        qpoints = fit[["qpoints"]]
+        init    = fit[["init"]]
+        predict = fit[["predict"]]
+        adaptive= fit[["adaptive"]][1]
     }
 
     # ------------------------------------------------------------------#
     # Call relvm_single
     allout <- sapply(groups, relvm_single2, df=alldf, qpoints=qpoints,
-                      init = init, predict = predict, simplify = FALSE)
+                      init = init, predict = predict, adaptive=adaptive,simplify = FALSE)
 
     # ------------------------------------------------------------------#
     # After Relvm:
     # Merge the predicted group score if there is multiple group.
-    preds <- alldf[,1,drop=FALSE]
+    preds <- alldf[,1,drop=FALSE] # take the column "provider_id"
     for (group in allout) {preds <- merge(x=preds,y=group$pred,all=TRUE)}
 
     # Merge factor loadings and other parametes.
@@ -73,7 +73,7 @@ relvm2 <- function(object,groups=NULL, fit=control(qpoints=30,init=NULL,predict=
 }
 
 # Set the relvm fitting control parametes.
-control <- function(qpoints = 30,init=NULL,predict=TRUE,adaptive="noad"){
+control <- function(qpoints = 30,init=NULL,predict=TRUE,adaptive=c("noad","ad")){
     {(control <- list(qpoints=qpoints,init=init,predict=predict,adaptive=adaptive))}
 }
 
@@ -92,10 +92,7 @@ control <- function(qpoints = 30,init=NULL,predict=TRUE,adaptive="noad"){
 #'
 #' @return An object of S3 class "relvm" with estimated parametes.
 #'
-relvm_single2 <- function(group, df = alldf,
-                          qpoints   = 30,
-                          init      = NULL,
-                          predict   = TRUE) {
+relvm_single2 <- function(group, df, qpoints,init,predict,adaptive) {
     # -------------------------------------------------------#
     # Prepare to fit
     # start of the cycle
@@ -128,7 +125,7 @@ relvm_single2 <- function(group, df = alldf,
                  wts     = wts_tbl,
                  cc      = cc,
                  qpoints = qpoints,
-                 adaptive=adaptive)
+                 adaptive= adaptive)
 
     #--------------------------------------------------------#
     # Output the fitting

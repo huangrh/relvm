@@ -4,8 +4,7 @@
 \alias{relvm_single2}
 \title{Estimation Of The Random Effect Latent Variable Model Parameters}
 \usage{
-relvm_single2(group, df = alldf, qpoints = 30, init = NULL,
-  predict = TRUE)
+relvm_single2(group, df, qpoints, init, predict, adaptive)
 }
 \arguments{
 \item{qpoints}{The numbe of the quadrature points.}

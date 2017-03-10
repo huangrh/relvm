@@ -5,7 +5,7 @@
 \title{Multiple Estimation Of The Random Effect Latent Variable Model Parameters}
 \usage{
 relvm2(object, groups = NULL, fit = control(qpoints = 30, init = NULL,
-  predict = TRUE))
+  predict = TRUE, adaptive = c("noad", "ad")))
 }
 \arguments{
 \item{object}{A mstbl object.}

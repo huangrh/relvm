@@ -17,7 +17,7 @@ idx <-unique(sample(1:4557,300))
 cms300 <- cms2016oct_input[idx,]
 
 x300 <- mstbl(cms300)
-fit <- relvm2(x,c("outcome_mort"))
+fit <- relvm2(x,c("outcome_mort"),fit=control(adaptive="noad"))
 ```
 
 
