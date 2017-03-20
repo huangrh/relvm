@@ -1,20 +1,9 @@
 #include <Rcpp.h>
 using namespace Rcpp;
 
-//' Rcpp Example
+//' Rcpp Log Density
 //'
-//' This is an example
-//'
-//' @export
-// [[Rcpp::export]]
-NumericVector timesTwo(NumericVector x) {
-  return x * 2;
-}
-
-
-//' Rcpp Example
-//'
-//' This is an example
+//' Log density fuction
 //'
 //' @export
 // [[Rcpp::export]]
@@ -49,13 +38,14 @@ double pnll_cpp(double        fv,
                 NumericVector fl) {
     //double pi = 3.141592653589793238463;
     NumericVector nll1 = wts_row*(0.79817986835+2*log(err)+pow((score_row-mu - fl * fv)/err,2))/2;
-    // int n = nll1.size();
-    // for (int i = 0; i< n; ++i) {
-    //     if (NumericVector::is_na(nll1[i]))  nll1[i]=0;
-    // }
-    nll1[is_na(nll1)]=0;
+    int n = nll1.size();
+    for (int i = 0; i< n; ++i) {
+        if (NumericVector::is_na(nll1[i]))  nll1[i]=0;
+    }
+    // nll1[is_na(nll1)]=0;
 
     double nll2 = (0.79817986835+pow(fv,2))/2;
 
     return     sum(nll1) + nll2;
+    //return (0.79817986835+pow(fv,2))/2+sum(na_omit(wts_row*(0.79817986835+2*log(err)+pow((score_row-mu - fl * fv)/err,2))/2));
 }

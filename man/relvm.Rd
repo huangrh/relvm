@@ -20,7 +20,8 @@ case a vector of all groups will be generated accordingly.}
 of the quadrature points. \item init: Initial values for mu, fl, and err
 term in a list. fl is the factor loading. They will be initialized
 generally if it is null. The default is a list with for all mu and one for
-others. \item predict: The default is TRUE. }}
+others. \item predict: The default is TRUE. \item adaptive: noad, no
+adaptive or ad, use adaptive.}}
 }
 \value{
 An list of S3 object of class "relvm" with estimated parametes.

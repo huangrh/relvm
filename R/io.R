@@ -1,3 +1,6 @@
+#'
+
+
 #' S3 method of print for relvm class
 #'
 #'
@@ -40,3 +43,6 @@ out_dir <- function(x) {
 #'
 #'
 `%>%` <- magrittr:::pipe()
+
+
+

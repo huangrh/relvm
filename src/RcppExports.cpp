@@ -5,17 +5,6 @@
 
 using namespace Rcpp;
 
-// timesTwo
-NumericVector timesTwo(NumericVector x);
-RcppExport SEXP relvm_timesTwo(SEXP xSEXP) {
-BEGIN_RCPP
-    Rcpp::RObject rcpp_result_gen;
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< NumericVector >::type x(xSEXP);
-    rcpp_result_gen = Rcpp::wrap(timesTwo(x));
-    return rcpp_result_gen;
-END_RCPP
-}
 // dnorm_cpp
 NumericVector dnorm_cpp(NumericVector x, double mean, double sd);
 RcppExport SEXP relvm_dnorm_cpp(SEXP xSEXP, SEXP meanSEXP, SEXP sdSEXP) {

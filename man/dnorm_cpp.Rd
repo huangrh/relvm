@@ -2,10 +2,10 @@
 % Please edit documentation in R/RcppExports.R
 \name{dnorm_cpp}
 \alias{dnorm_cpp}
-\title{Rcpp Example}
+\title{Rcpp Log Density}
 \usage{
 dnorm_cpp(x, mean = 0, sd = 1)
 }
 \description{
-This is an example
+Log density fuction
 }

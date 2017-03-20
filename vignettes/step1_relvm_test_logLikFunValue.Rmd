@@ -19,8 +19,8 @@ set.seed(100)
 idx <-unique(sample(1:4557,300))
 x <- object <- mstbl(cms2016oct_input)
 subdat    <- subgroup(x)
-score <- score_tbl <- mstbl_std <- as.matrix(subdat$outcome_mort$mstbl_std)
-wts <- wts_tbl     <- as.matrix(subdat$outcome_mort$wtbl)
+score <- score_tbl <- mstbl_std <- as.matrix(subdat$outcome_safty$mstbl_std)
+wts <- wts_tbl     <- as.matrix(subdat$outcome_safty$wtbl)
 
 # Setup and initialize the parameters
 nc <- ncol(mstbl_std);
@@ -36,6 +36,45 @@ dnorm2 <- function(x,mean=0,sd=1) {-(log(2 * pi) +2*log(sd)+((x-mean)/sd)^2)/2}
 
 ```
 
+```{r v11, echo = FALSE}
+# repreduce mark's code. set the variance to 1. 
+set.seed(100)
+v=1
+# speedup Vectorized Estimation function
+venll11 <- function(par,score,wts,cc,qpoints) {
+    # Reconstruction of the parameters
+    nr <- nrow(score); nc <- ncol(score)
+    mu    <- par[grepl("mu", names(par))]         #
+    fl    <- par[grepl("fl", names(par))]         # factor loading
+    err   <- par[grepl("err", names(par))]
+    
+    # 2nd derivative
+    # coefs <- sqrt(2/(rowSums((fl^2 * wts/err^2), na.rm = TRUE) + 1))
+    coefs <- rep(sqrt(2),nr)
+    
+    # fv matrix
+    fv_mtx  <- cc$x %o% coefs
+
+    # 3D array: 
+    wts_arr   <- aperm(array(wts,  dim=c(nr,nc,qpoints)),c(2,3,1))
+    score_arr <- aperm(array(score,dim=c(nr,nc,qpoints)),c(2,3,1))
+    means_arr <- array(mu,         dim=c(nc,qpoints,nr)) + fl %o% fv_mtx
+    
+    # Weighted log likelyhood
+    wll_mtx   <- colSums(wts_arr * dnorm2(score_arr, mean=means_arr, sd = err),na.rm=TRUE)
+    
+    # Joint probability
+    joint_mtx <- wll_mtx +  dnorm_cpp(fv_mtx, mean=0,sd=1)
+    
+    # Gaussian quadrature integral approximation
+    gqi <- matrixStats::colLogSumExps(joint_mtx + log(cc$w) +(cc$x)^2,na.rm=TRUE)
+    -sum(log(coefs)+gqi, na.rm=TRUE)
+}
+venll11(par=init,score=mstbl_std, wts=wts_tbl,cc,qpoints)
+# microbenchmark::microbenchmark(re1 = venll11(par=init,score=mstbl_std, wts=wts_tbl,cc,qpoints))
+# l <- lineprof::lineprof(venll7(par=init,score=mstbl_std, wts=wts_tbl,cc,qpoints))
+
+```
 
 ```{r 10short, echo = FALSE}
 set.seed(100)
@@ -110,7 +149,9 @@ venll9 <- function(par,score,wts,cc,qpoints) {
     fdd <- rowSums((fl^2 * wts/err^2), na.rm = TRUE) + 1
     
     # coefs
-    L11 = 0
+    L11 = 1
+    L11x = 0.5*fd
+    coefs = rep(sqrt(2),)
     
     
     # coefs_1 <- sqrt(2/(rowSums((fl^2 * wts/err^2), na.rm = TRUE) + 1))
@@ -506,12 +547,13 @@ venll <- function(par,
             out2  <- dnorm(fv, mean=0,sd=1,log=TRUE)
             -sum(out1,out2,na.rm=TRUE)
         }
-        
+
         # Calculation
         wts_row   <- as.matrix(wts[idx,])
         score_row <- as.matrix(score[idx,])
         (coef     <- sqrt(2 / pracma::hessian(fn,0))) # pracma::hessian or numDeriv::hessian
     })
+    
     
     #
     fv_m  <- cc$x %o% coefs
@@ -534,7 +576,7 @@ venll <- function(par,
     -sum(log(coefs)+gqi, na.rm=TRUE)
 }
 venll(par=init,score=mstbl_std, wts=wts_tbl,qpoints=30)
-microbenchmark::microbenchmark(re1 = venll(par=init,score=mstbl_std, wts=wts_tbl,qpoints=30))
+# microbenchmark::microbenchmark(re1 = venll(par=init,score=mstbl_std, wts=wts_tbl,qpoints=30))
 ```
 
 
