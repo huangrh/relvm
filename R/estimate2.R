@@ -1,12 +1,11 @@
-#' Fitting Control.
-#'
-#' Set the relvm fitting control parametes.
-#'
-#' @export
-#'
-control <- function(qpoints = 30,init=NULL,predict=TRUE,adaptive=c("noad","ad")){
-    {(control <- list(qpoints=qpoints,init=init,predict=predict,adaptive=adaptive))}
-}
+# Fitting Control.
+#
+# Set the relvm fitting control parametes.
+#@export
+#
+# control <- function(qpoints = 30,init=NULL,predict=TRUE,adaptive=c("noad","ad")){
+#     {(control <- list(qpoints=qpoints,init=init,predict=predict,adaptive=adaptive))}
+# }
 
 
 # Simplified normal density function.

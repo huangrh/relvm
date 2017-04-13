@@ -1,3 +1,6 @@
+# Simplified normal density function.
+dnorm2 <- function(x,mean=0,sd=1) -(log(2 * pi) +2*log(sd)+((x-mean)/sd)^2)/2
+
 #
 merge_default = function(x,y) {
     i = is.na(match(names(y), names(x)))
@@ -13,10 +16,12 @@ merge_default = function(x,y) {
 #' @param object A mstbl object.
 #' @param groups A vector of measure group names. The default is NULL, in which
 #'   case a vector of all groups will be generated accordingly.
-#' @param fit A list of fitting parameters. \itemize{ \item init: Initial values for mu, fl, and err
+#' @param fit A list of fitting parameters. \itemize{ \item qpoints: The numbe
+#'   of the quadrature points. \item init: Initial values for mu, fl, and err
 #'   term in a list. fl is the factor loading. They will be initialized
 #'   generally if it is null. The default is a list with for all mu and one for
-#'   others. \item predict: The default is TRUE.}
+#'   others. \item predict: The default is TRUE. \item adaptive: noad, no
+#'   adaptive or ad, use adaptive.}
 #'
 #' @return An list of S3 object of class "relvm" with estimated parametes.
 #' @seealso \code{\link{mstbl}}
@@ -24,7 +29,7 @@ merge_default = function(x,y) {
 #'
 #' @export
 #'
-relvm <- function(object,groups=NULL,fit=list(init=NULL,predict=TRUE)) {
+relvm <- function(object,groups=NULL,fit=list(qpoints=30,init=NULL,predict=TRUE)) {
 
     # -------------------------------------------------------
     # Merge both tables of the measure score and weights.
@@ -40,19 +45,20 @@ relvm <- function(object,groups=NULL,fit=list(init=NULL,predict=TRUE)) {
     } else stop("The group name do not match.")
 
     # Fit control
-    fit.default = list(init=NULL,predict=TRUE)
+    fit.default = list(qpoints = 30,init=NULL,predict=TRUE,adaptive=c("noad","ad"))
     fit         = merge_default(x=fit,y=fit.default)
-
+    qpoints = fit[["qpoints"]]
     init    = fit[["init"]]
     predict = fit[["predict"]]
+    adaptive= fit[["adaptive"]][1]
 
     # ------------------------------------------------------------------#
     # Call relvm_single
     # snowfall::sfInit(parallel=TRUE,cpus=2);snowfall::sfExportAll()
     # snowfall::sfExport(create_measure_tbl)
 
-    allout <- sapply(groups, relvm_single3, df=alldf,
-                      init = init, predict = predict,simplify = FALSE)
+    allout <- sapply(groups, relvm_single3, df=alldf, qpoints=qpoints,
+                      init = init, predict = predict, adaptive=adaptive,simplify = FALSE)
 
     # snowfall::sfRemoveAll()
     # snowfall::sfStop()
@@ -94,6 +100,7 @@ relvm <- function(object,groups=NULL,fit=list(init=NULL,predict=TRUE)) {
 #'
 #' @param mstbl_std The standized measure score table.
 #' @param wts_tbl The measure score weight table.
+#' @param qpoints The numbe of the quadrature points.
 #' @param init Initial values for mu, fl, and err term in a list. fl is the
 #'   factor loading. They will be initialized generally if it is null. The
 #'   default is a list with for all mu and one for others.
@@ -101,7 +108,7 @@ relvm <- function(object,groups=NULL,fit=list(init=NULL,predict=TRUE)) {
 #'
 #' @return An object of S3 class "relvm" with estimated parametes.
 #'
-relvm_single3 <- function(group, df, init, predict) {
+relvm_single3 <- function(group, df, qpoints,init,predict,adaptive) {
     # -------------------------------------------------------#
     # Prepare to fit
     # start of the cycle
@@ -119,6 +126,12 @@ relvm_single3 <- function(group, df, init, predict) {
         init <- unlist(list(mu  = rep(0.5, nc),
                             fl  = rep(0.5, nc),
                             err = rep(0.5, nc)))}
+    # cc$x & cc$w
+    cc <- pracma::gaussHermite(qpoints);
+    ccidx <- cc$w>1e-36;
+    cc$w = cc$w[ccidx];
+    cc$x = cc$x[ccidx];
+    cc_len=length(cc$x);
 
 
     #--------------------------------------------------------#
@@ -130,7 +143,9 @@ relvm_single3 <- function(group, df, init, predict) {
                  control = list(maxit=1000), # set factr=1e-8
                  hessian = FALSE,
                  score   = mstbl_std,
-                 wts     = wts_tbl)
+                 wts     = wts_tbl,
+                 cc      = cc,
+                 qpoints = cc_len)
 
     #--------------------------------------------------------#
     # Output the fitting
@@ -215,6 +230,8 @@ venll12 <- function(par,score,wts,cc,qpoints) {
     gqi <- matrixStats::colLogSumExps(log(cc$w) + wll_mtx - 0.91893853320467267,na.rm=TRUE)
     -sum(gqi +0.3465735902799727, na.rm=TRUE)
 }
+
+
 
 venll11m <- function(par,score,wts,cc,qpoints) {
     # Reconstruction of the parameters

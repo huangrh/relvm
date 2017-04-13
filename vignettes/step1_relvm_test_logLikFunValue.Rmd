@@ -13,14 +13,16 @@ vignette: >
 ```{r data}
 require(rstarating)
 require(relvm)
+
+group <- "outcome_safty"
 # Prepare to fit
 # start of the cycle
 set.seed(100)
 idx <-unique(sample(1:4557,300))
 x <- object <- mstbl(cms2016oct_input)
 subdat    <- subgroup(x)
-score <- score_tbl <- mstbl_std <- as.matrix(subdat$outcome_safty$mstbl_std)
-wts <- wts_tbl     <- as.matrix(subdat$outcome_safty$wtbl)
+score <- score_tbl <- mstbl_std <- as.matrix(subdat[[group]]$mstbl_std)
+wts <- wts_tbl     <- as.matrix(subdat[[group]]$wtbl)
 
 # Setup and initialize the parameters
 nc <- ncol(mstbl_std);
@@ -31,8 +33,184 @@ par <- init <- unlist(list(mu  = rep(0, nc),
 
 qpoints= 30
 cc <- pracma::gaussHermite(qpoints);
-
+fv  <- 1.4142135623730951 * cc$x
+logccw <- log(cc$w)
 dnorm2 <- function(x,mean=0,sd=1) {-(log(2 * pi) +2*log(sd)+((x-mean)/sd)^2)/2}
+
+
+set.seed(100)
+fitx <- readRDS(file.path("C:/rhuang/workspace/R/hospitalrating/inst/2016oct/r","fitx_qpts30_oct2016.rds"))
+par <- init <- unlist(list(mu=fitx[[group]]$par$mu,
+                           fl=fitx[[group]]$par$fl,
+                           err=fitx[[group]]$par$err))
+```
+
+#### negLogLikFun-15  
+```{r v15, echo = FALSE}
+set.seed(100)
+
+# speedup Vectorized Estimation function
+venll15 <- function(par,score,wts,qpoints) {
+    cc <- pracma::gaussHermite(qpoints);
+    # Reconstruction of the parameters
+    nr <- nrow(score); nc <- ncol(score)
+    mu    <- par[grepl("mu", names(par))]         #
+    fl    <- par[grepl("fl", names(par))]         # factor loading
+    err   <- par[grepl("err", names(par))]
+    
+    # 2nd derivative
+    # coefs <- sqrt(2/(rowSums((fl^2 * wts/err^2), na.rm = TRUE) + 1))
+    coefs <- rep(sqrt(2),nr)
+    
+    # fv matrix
+    fv_mtx  <- cc$x %o% coefs
+
+    # 3D array: 
+    wts_arr   <- aperm(array(wts,  dim=c(nr,nc,qpoints)),c(2,3,1))
+    score_arr <- aperm(array(score,dim=c(nr,nc,qpoints)),c(2,3,1))
+    means_arr <- array(mu,         dim=c(nc,qpoints,nr)) + fl %o% fv_mtx
+    
+    # Weighted log likelyhood /# Joint probability in log scale.
+    wll_mtx   <- colSums(wts_arr * dnorm2(score_arr, mean=means_arr, sd = err),na.rm=TRUE)
+    joint_mtx <- wll_mtx +  dnorm_cpp(fv_mtx, mean=0,sd=1)
+    
+    # Gaussian quadrature integral approximation
+    gqi <- matrixStats::colLogSumExps(joint_mtx + log(cc$w) +(cc$x)^2,na.rm=TRUE)
+    #         gqio <- log(colSums(exp(joint_mtx + log(cc$w) +(cc$x)^2)))
+    # 
+    #gqio<-log(colSums(exp( wll_mtx+log(cc$w)+ dnorm_cpp(fv_mtx,mean=0,sd=1)+(cc$x)^2),na.rm=TRUE))
+     gqio<-log(colSums(exp( wll_mtx+log(cc$w)+ log(1/sqrt(2*pi))),                     na.rm=TRUE))
+    max(gqio-gqi)
+    
+
+    if (FALSE) {
+        dev.off();par(mar=rep(2,4));layout(matrix(1:3,3));
+        plot(cc$x,cc$w)
+        plot(cc$x,exp(wll_mtx[,which.max(wll_mtx[1,])]));abline(v=cc$x)
+        plot(cc$x,cc$w*exp(wll_mtx[,which.max(wll_mtx[1,])]),ylim=c(0,1));abline(v=cc$x)
+        
+        # 
+        final2 <- log(coefs*colSums(exp( wll_mtx+log(cc$w)+ log(1/sqrt(2*pi)))))
+        sum(final2)
+    }
+    
+    -sum(log(coefs)+gqi, na.rm=TRUE)
+}
+venll15(par=init,score=mstbl_std, wts=wts_tbl,qpoints) - 22053.166744270311 #use final parameters. 
+# microbenchmark::microbenchmark(re1 = venll15(par=init,score=mstbl_std, wts=wts_tbl,cc,qpoints))
+# l <- lineprof::lineprof(venll15(par=init,score=mstbl_std, wts=wts_tbl,cc,qpoints))
+
+```
+
+```{r v14, echo = FALSE}
+# repreduce mark's code. set the variance to 1. 
+set.seed(100)
+v=1
+# speedup Vectorized Estimation function
+venll14 <- function(par,score,wts,cc,qpoints) {
+    # Reconstruction of the parameters
+    nr <- nrow(score); nc <- ncol(score)
+    mu    <- par[grepl("mu", names(par))]         #
+    fl    <- par[grepl("fl", names(par))]         # factor loading
+    err   <- par[grepl("err", names(par))]
+    
+    # 2nd derivative
+    # coefs <- sqrt(2/(rowSums((fl^2 * wts/err^2), na.rm = TRUE) + 1))
+    coefs <- rep(sqrt(2),nr)
+    
+    # fv matrix
+    fv_mtx  <- cc$x %o% coefs
+
+    # 3D array: 
+    wts_arr   <- array(wts,  dim=c(nr,nc,qpoints))
+    score_arr <- array(score,dim=c(nr,nc,qpoints))
+    means_arr <- array(rep(mu,rep(nr,nc)), dim=c(nr,nc, qpoints)) + coefs %o% fl %o% cc$x
+    
+    # Weighted log likelyhood
+    wll_arr <- array(c(wts) * dnorm2(c(score), mean=c(means_arr), sd = rep(err,rep(nr,nc))),c(nr,nc,qpoints))
+    wll_mtx <- colSums(aperm(wll_arr,c(2,3,1)),na.rm=TRUE)
+    
+    # Joint probability
+    joint_mtx <- wll_mtx +  dnorm_cpp(fv_mtx, mean=0,sd=1)
+    
+    # Gaussian quadrature integral approximation
+    gqi <- matrixStats::colLogSumExps(joint_mtx + log(cc$w) +(cc$x)^2,na.rm=TRUE)
+    -sum(log(coefs)+gqi, na.rm=TRUE)
+}
+venll14(par=init,score=mstbl_std, wts=wts_tbl,cc,qpoints)
+microbenchmark::microbenchmark(re1 = venll14(par=init,score=mstbl_std, wts=wts_tbl,cc,qpoints))
+# l <- lineprof::lineprof(venll14(par=init,score=mstbl_std, wts=wts_tbl,cc,qpoints))
+
+```
+
+
+```{r v13, echo = FALSE}
+# simplify code. set the variance to 1. 
+set.seed(100)
+v=1
+# speedup Vectorized Estimation function
+venll13 <- function(par,score,wts,cc,qpoints) {
+    # Reconstruction of the parameters
+    nr <- nrow(score); nc <- ncol(score)
+    mu    <- par[grepl("mu", names(par))]         #
+    fl    <- par[grepl("fl", names(par))]         # factor loading
+    err   <- par[grepl("err", names(par))]
+    
+    # fv matrix
+    fv  <- 1.4142135623730951 * cc$x
+
+    # Weighted log likelyhood
+    # 3D array: 
+    wts_arr   <- aperm(array(wts,  dim=c(nr,nc,qpoints)),c(2,3,1))
+    score_arr <- aperm(array(score,dim=c(nr,nc,qpoints)),c(2,3,1))
+    means_arr <- mu+c(fl %o% fv)
+    wll_mtx   <- colSums(wts_arr * dnorm2(score_arr, mean=c(means_arr), sd = err),na.rm=TRUE)
+    
+    # Gaussian quadrature integral approximation
+    # gqi <- log(sum(exp(joint_mtx + log(cc$w) +(cc$x)^2),na.rm=TRUE))
+    # log(2*pi)/2 = 0.91893853320467267=dnorm_cpp(cc$x * sqrt(2), mean=0,sd=1) +(cc$x)^2; 
+    # log(sqrt(2))=0.3465735902799727
+    gqi <- matrixStats::colLogSumExps(log(cc$w) + wll_mtx - 0.91893853320467267,na.rm=TRUE)
+    -sum(gqi +0.3465735902799727, na.rm=TRUE)
+}
+venll13(par=init,score=mstbl_std, wts=wts_tbl,cc,qpoints)
+microbenchmark::microbenchmark(re1 = venll13(par=init,score=mstbl_std, wts=wts_tbl,cc,qpoints))
+# l <- lineprof::lineprof(venll12(par=init,score=mstbl_std, wts=wts_tbl,fv,logccw,qpoints))
+
+```
+
+```{r v12, echo = FALSE}
+# simplify code. set the variance to 1. 
+set.seed(100)
+v=1
+# speedup Vectorized Estimation function
+venll12 <- function(par,score,wts,fv,logccw,qpoints) {
+    # Reconstruction of the parameters
+    nr <- nrow(score); nc <- ncol(score)
+    mu    <- par[grepl("mu", names(par))]         #
+    fl    <- par[grepl("fl", names(par))]         # factor loading
+    err   <- par[grepl("err", names(par))]
+    
+    # fv matrix
+    # fv  <- 1.4142135623730951 * cc$x
+
+    # Weighted log likelyhood
+    # 3D array: 
+    wts_arr   <- aperm(array(wts,  dim=c(nr,nc,qpoints)),c(2,3,1))
+    score_arr <- aperm(array(score,dim=c(nr,nc,qpoints)),c(2,3,1))
+    means_arr <-array(mu+c(fl %o% fv),   dim=c(nc,qpoints,nr))
+    wll_mtx   <- colSums(wts_arr * dnorm2(score_arr, mean=means_arr, sd = err),na.rm=TRUE)
+    
+    # Gaussian quadrature integral approximation
+    # gqi <- log(sum(exp(joint_mtx + log(cc$w) +(cc$x)^2),na.rm=TRUE))
+    # log(2*pi)/2 = 0.91893853320467267=dnorm_cpp(cc$x * sqrt(2), mean=0,sd=1) +(cc$x)^2; 
+    # log(sqrt(2))=0.3465735902799727
+    gqi <- matrixStats::colLogSumExps(logccw + wll_mtx - 0.91893853320467267,na.rm=TRUE)
+    -sum(gqi +0.3465735902799727, na.rm=TRUE)
+}
+venll12(par=init,score=mstbl_std, wts=wts_tbl,fv,logccw,qpoints)
+microbenchmark::microbenchmark(re1 = venll12(par=init,score=mstbl_std, wts=wts_tbl,fv,logccw,qpoints))
+# l <- lineprof::lineprof(venll12(par=init,score=mstbl_std, wts=wts_tbl,fv,logccw,qpoints))
 
 ```
 
@@ -56,7 +234,7 @@ venll11 <- function(par,score,wts,cc,qpoints) {
     fv_mtx  <- cc$x %o% coefs
 
     # 3D array: 
-    wts_arr   <- aperm(array(wts,  dim=c(nr,nc,qpoints)),c(2,3,1))
+    wts_arr   <- aperm(array(t(wts),  dim=c(nc,nr,qpoints)),c(1,3,2))
     score_arr <- aperm(array(score,dim=c(nr,nc,qpoints)),c(2,3,1))
     means_arr <- array(mu,         dim=c(nc,qpoints,nr)) + fl %o% fv_mtx
     
@@ -124,7 +302,7 @@ venll10s <- function(par,score,wts,cc,qpoints) {
     -sum(log(coefs)+gqi, na.rm=TRUE)
 }
 venll10s(par=init,score=mstbl_std, wts=wts_tbl,cc,qpoints)
-microbenchmark::microbenchmark(re1 = venll10s(par=init,score=mstbl_std, wts=wts_tbl,cc,qpoints))
+# microbenchmark::microbenchmark(re1 = venll10s(par=init,score=mstbl_std, wts=wts_tbl,cc,qpoints))
 # l <- lineprof::lineprof(venll7(par=init,score=mstbl_std, wts=wts_tbl,cc,qpoints))
 
 ```
@@ -643,27 +821,6 @@ venll0 <- function(par,
 venll0(par=init,score=mstbl_std, wts=wts_tbl,qpoints=30)
 microbenchmark::microbenchmark(re1 = venll0(par=init,score=mstbl_std, wts=wts_tbl,qpoints=30))
 ```
-```{r}
-
-```
-
-
-```{R}
-start_time = Sys.time()
-#--------------------------------------------------------#
-# Fit the function
-fit <- optim(par     = init,     # Model parameter
-             fn      = venll,    # Estimation function
-             gr      = NULL,
-             method  = "L-BFGS",
-             control = list(maxit=1000),
-             hessian = FALSE,
-             score   = mstbl_std,
-             wts     = wts_tbl,
-             qpoints = qpoints)
-Sys.time()-start_time
-```
-
 
 
 

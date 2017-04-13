@@ -3,7 +3,6 @@
 S3method(predict,relvm)
 S3method(print,relvm)
 export(arrayC)
-export(control)
 export(dnorm_cpp)
 export(out_dir)
 export(pnll_cpp)

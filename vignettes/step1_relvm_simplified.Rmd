@@ -1,0 +1,87 @@
+---
+title: "Simplified Random Effect Latent Variable Model"
+author: "Ren-Huai Huang, ACE"
+date: "`r Sys.Date()`"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Vignette Title}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+
+```{r data}
+require(rstarating)
+require(relvm)
+group <- "outcome_mort"
+
+# Prepare to fit
+x   <- mstbl(cms2016oct_input)
+subdat<- subgroup(x)
+score <- score_tbl <- mstbl_std <- as.matrix(subdat[[group]]$mstbl_std)
+wts   <- wts_tbl   <- as.matrix(subdat[[group]]$wtbl)
+
+# Setup and initialize the parameters
+nc <- ncol(score)
+par <- init <- unlist(list(mu  = rep(0, nc),
+                    fl  = rep(1, nc),
+                    err = rep(1, nc)))
+```  
+
+#### negLogLikFun-18  
+```{r v18, echo = FALSE}
+set.seed(100)
+
+# Simplified Vectorized Estimation function
+venll18 <- function(par,score,wts) {
+    nr <- nrow(score); nc <- ncol(score)
+    mu    <- par[grepl("mu", names(par))]         #
+    fl    <- par[grepl("fl", names(par))]         # factor loading
+    err   <- par[grepl("err", names(par))]
+    
+    # matrix: score, wts, mu,fl,err
+    mu_mtx  <- matrix(mu, nrow=nr,ncol=nc,byrow=TRUE) # 
+    fl_mtx  <- matrix(fl, nrow=nr,ncol=nc,byrow=TRUE) # loading_m
+    err_mtx <- matrix(err,nrow=nr,ncol=nc,byrow=TRUE) # delta_m
+    
+    #
+    log_fh <- - 1/2*log(2*pi) + rowSums(-wts/2 * (log(2*pi)+2*log(err_mtx)), na.rm=TRUE)
+    ah     <- - 1/2 * (1+rowSums(wts * fl_mtx^2 / err_mtx^2,na.rm=TRUE))
+    bh     <- rowSums(wts/err_mtx^2 * (score-mu_mtx) * fl_mtx,  na.rm=TRUE)
+    ch     <- rowSums(-wts / (2 * err_mtx^2) * (score-mu_mtx)^2,na.rm=TRUE)
+    
+    -sum(log_fh + ch -bh^2/(4*ah) + log(-pi/ah)/2, na.rm=TRUE)
+}
+venll18(par=init,score=mstbl_std, wts=wts_tbl)  
+microbenchmark::microbenchmark(re1 = venll18(par=init,score=mstbl_std, wts=wts_tbl))
+# l <- lineprof::lineprof(venll16(par=init,score=mstbl_std, wts=wts_tbl,cc,qpoints))
+```
+
+#### negLogLikFun-16  
+```{r v16, echo = FALSE}
+set.seed(100)
+
+# speedup Vectorized Estimation function
+venll16 <- function(par,score,wts) {
+    nr <- nrow(score); nc <- ncol(score)
+    mu    <- par[grepl("mu", names(par))]         #
+    fl    <- par[grepl("fl", names(par))]         # factor loading
+    err   <- par[grepl("err", names(par))]
+    
+    # matrix: score, wts, mu,fl,err
+    mu_mtx  <- matrix(mu, nrow=nr,ncol=nc,byrow=TRUE) # 
+    fl_mtx  <- matrix(fl, nrow=nr,ncol=nc,byrow=TRUE) # loading_m
+    err_mtx <- matrix(err,nrow=nr,ncol=nc,byrow=TRUE) # delta_m
+    
+    #
+    log_fh <- - 1/2*log(2*pi) + rowSums(-wts/2 * (log(2*pi)+2*log(err_mtx)), na.rm=TRUE)
+    ah     <- - 1/2 * (1+rowSums(wts * fl_mtx^2 / err_mtx^2,na.rm=TRUE))
+    bh     <- rowSums(wts/err_mtx^2 * (score-mu_mtx) * fl_mtx,  na.rm=TRUE)
+    ch     <- rowSums(-wts / (2 * err_mtx^2) * (score-mu_mtx)^2,na.rm=TRUE)
+    
+    -sum(log_fh + ch -bh^2/(4*ah) + log(-pi/ah)/2, na.rm=TRUE)
+}
+venll16(par=init,score=mstbl_std, wts=wts_tbl)  
+microbenchmark::microbenchmark(re1 = venll16(par=init,score=mstbl_std, wts=wts_tbl))
+# l <- lineprof::lineprof(venll16(par=init,score=mstbl_std, wts=wts_tbl,cc,qpoints))
+```

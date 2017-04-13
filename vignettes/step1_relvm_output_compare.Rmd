@@ -1,0 +1,49 @@
+---
+title: "step1_output_compare.Rmd"
+author: "Ren-Huai Huang"
+date: "March 28, 2017"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+require(readxl)
+```
+
+```{r}
+
+# Load the sas output.  
+file   <- system.file("cms/oct2016/sas/SASoutput_Oct2016_2016-11-14.xlsx",package="cmsdata")
+sasdat <- read_excel(file,sheet="star_2016oct");
+names(sasdat)      <- tolower(names(sasdat))
+sasdat$provider_id <- gsub("^b'|'$","",sasdat$provider_id)
+
+# setted factr = 1e-8 in optim control. The final star rating only change 1 hospital. 
+fp <- out_dir("C:/rhuang/workspace/R/rstarating/inst/Oct2016/r/stage2_out")
+fitx <- readRDS(file.path(fp,"fitx_oct2016_factr.rds"))
+
+#
+sas_group_score <- subset(sasdat,select=grep("prov|std_",names(sasdat)))
+group_score <- merge(x=fitx$groups$preds,y=sas_group_score,all=TRUE,by="provider_id",suffixed=c(".r",".sas"))
+
+# 
+sas_star <- subset(sasdat, select=c("provider_id","star"))
+r_star <- rating(fitx$groups$summary_score,iter.max=1)
+r_star <- subset(r_star$summary_score,select=c("provider_id","star"))
+names(r_star)[2] <- "rstar"
+star   <- merge(x=sas_star,y=r_star,all=TRUE,by="provider_id")
+
+#
+cat("The number of hospitals got different star: ",with(star,sum(!star==rstar)),"out of",nrow(star),"hospitals.")
+
+
+```
+
+```{r}
+fp   <- out_dir("C:/rhuang/workspace/R/hospitalrating/inst/2016oct/r")
+fitxd <- readRDS(file.path(fp,"fitx_qpts30_oct2016.rds"))
+dstar <- rating(fitxd$groups$summary_score,iter.max=1)
+table(dstar$star==r_star$rstar)
+```
+
+

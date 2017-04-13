@@ -13,10 +13,16 @@ vignette: >
 ```{r test_170223}
 require(rstarating); require(relvm);require(rclus)
 set.seed(100)
-idx <- sample(1:4000,300)
 x <- cms2016oct_input
-# x = x[idx,]
+
 object <-  x <- mstbl(x)
-fitx <- relvm(x)
-sr <- rating(fitx$groups$summary_score)w
+fitx   <- relvm(x, fit = list(qpoints=10))
+# sr <- rating(fitx$groups$summary_score,iter.max = 110)
+
+# 
+# op <- out_dir("C:/rhuang/workspace/R/hospitalrating/inst/2016oct/r")
+# saveRDS(fitx,file=file.path(op,"fitx_qpts800n.rds"))
+
 ```
+
+

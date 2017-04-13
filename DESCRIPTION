@@ -1,8 +1,8 @@
 Package: relvm
 Type: Package
-Title: What the Package Does (Title Case)
+Title: Random Effect Laten Variable Model For Hospital Compare
 Version: 0.1.0
-Authors@R: person("First", "Last", email = "first.last@example.com", role = c("aut", "cre"))
+Authors@R: person("Ren-Huai", "Huang", email = "huangrenhuai@gmail.com", role = c("aut", "cre"))
 Description: More about what it does (maybe more than one line)
 License: What license is it under?
 LazyData: TRUE
@@ -10,7 +10,8 @@ RoxygenNote: 6.0.1
 LinkingTo: Rcpp
 Depends: R (>= 3.3.2)
 Imports:
-    Rcpp
+    Rcpp,
+    snowfall (>= 1.84)
 Suggests:
     knitr,
     rmarkdown
