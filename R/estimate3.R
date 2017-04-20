@@ -29,7 +29,7 @@ merge_default = function(x,y) {
 #'
 #' @export
 #'
-relvm <- function(object,groups=NULL,fit=list(qpoints=30,init=NULL,predict=TRUE)) {
+relvm_app <- function(object,groups=NULL,fit=list(qpoints=30,init=NULL,predict=TRUE)) {
 
     # -------------------------------------------------------
     # Merge both tables of the measure score and weights.
@@ -57,7 +57,7 @@ relvm <- function(object,groups=NULL,fit=list(qpoints=30,init=NULL,predict=TRUE)
     # snowfall::sfInit(parallel=TRUE,cpus=2);snowfall::sfExportAll()
     # snowfall::sfExport(create_measure_tbl)
 
-    allout <- sapply(groups, relvm_single3, df=alldf, qpoints=qpoints,
+    allout <- sapply(groups, relvm_single_app, df=alldf, qpoints=qpoints,
                       init = init, predict = predict, adaptive=adaptive,simplify = FALSE)
 
     # snowfall::sfRemoveAll()
@@ -108,7 +108,7 @@ relvm <- function(object,groups=NULL,fit=list(qpoints=30,init=NULL,predict=TRUE)
 #'
 #' @return An object of S3 class "relvm" with estimated parametes.
 #'
-relvm_single3 <- function(group, df, qpoints,init,predict,adaptive) {
+relvm_single_app <- function(group, df, qpoints,init,predict,adaptive) {
     # -------------------------------------------------------#
     # Prepare to fit
     # start of the cycle
@@ -137,7 +137,7 @@ relvm_single3 <- function(group, df, qpoints,init,predict,adaptive) {
     #--------------------------------------------------------#
     # Fit the function
     fit <- optim(par     = init,      # Model parameter
-                 fn      = venll18, # venll11m,   # Estimation function
+                 fn      = venll11m, # venll11m,   # Estimation function
                  gr      = NULL,
                  method  = "L-BFGS-B",
                  control = list(maxit=1000), # set factr=1e-8
@@ -184,26 +184,6 @@ relvm_single3 <- function(group, df, qpoints,init,predict,adaptive) {
     structure(fit,class="relvm")
 }
 
-# Simplified Vectorized Estimation function
-venll18 <- function(par,score,wts) {
-    nr <- nrow(score); nc <- ncol(score)
-    mu    <- par[grepl("mu", names(par))]         #
-    fl    <- par[grepl("fl", names(par))]         # factor loading
-    err   <- par[grepl("err", names(par))]
-
-    # matrix: score, wts, mu,fl,err
-    mu_mtx  <- matrix(mu, nrow=nr,ncol=nc,byrow=TRUE) #
-    fl_mtx  <- matrix(fl, nrow=nr,ncol=nc,byrow=TRUE) # loading_m
-    err_mtx <- matrix(err,nrow=nr,ncol=nc,byrow=TRUE) # delta_m
-
-    #
-    log_fh <- - 1/2*log(2*pi) + rowSums(-wts/2 * (log(2*pi)+2*log(err_mtx)), na.rm=TRUE)
-    ah     <- - 1/2 * (1+rowSums(wts * fl_mtx^2 / err_mtx^2,na.rm=TRUE))
-    bh     <- rowSums(wts/err_mtx^2 * (score-mu_mtx) * fl_mtx,  na.rm=TRUE)
-    ch     <- rowSums(-wts / (2 * err_mtx^2) * (score-mu_mtx)^2,na.rm=TRUE)
-
-    -sum(log_fh + ch -bh^2/(4*ah) + log(-pi/ah)/2, na.rm=TRUE)
-}
 
 # object function
 venll12 <- function(par,score,wts,cc,qpoints) {

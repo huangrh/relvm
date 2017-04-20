@@ -169,7 +169,7 @@ out1 <- sapply(groups, function(group){
     nc <- ncol(mstbl_std);
     par <- init <- unlist(list(mu  = rep(0, nc),fl = rep(1, nc),err = rep(1, nc)))
     
-    sumNegLogLik<- sapply(5:(4+n), function(qpt) venll15(par=init, score=mstbl_std, wts=wts,qpt))
+    sumNegLogLik<- sapply(5:(4+n), function(qpt) venll15(par=init, score=mstbl_std, wts=wts, qpt))
     sumNegLogLik
 },simplify = FALSE)
 

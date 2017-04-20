@@ -13,7 +13,8 @@ vignette: >
 ```{r data}
 require(rstarating)
 require(relvm)
-group <- "outcome_mort"
+group <- "outcome_readm"
+
 
 # Prepare to fit
 x   <- mstbl(cms2016oct_input)
@@ -26,6 +27,12 @@ nc <- ncol(score)
 par <- init <- unlist(list(mu  = rep(0, nc),
                     fl  = rep(1, nc),
                     err = rep(1, nc)))
+
+qpoints= 5000
+cc <- pracma::gaussHermite(qpoints);
+fv  <- 1.4142135623730951 * cc$x
+logccw <- log(cc$w)
+dnorm2 <- function(x,mean=0,sd=1) {-(log(2 * pi) +2*log(sd)+((x-mean)/sd)^2)/2}
 ```  
 
 #### negLogLikFun-18  
@@ -33,29 +40,29 @@ par <- init <- unlist(list(mu  = rep(0, nc),
 set.seed(100)
 
 # Simplified Vectorized Estimation function
-venll18 <- function(par,score,wts) {
+fn18 <- function(par,score,wts) {
     nr <- nrow(score); nc <- ncol(score)
-    mu    <- par[grepl("mu", names(par))]         #
-    fl    <- par[grepl("fl", names(par))]         # factor loading
-    err   <- par[grepl("err", names(par))]
-    
+ 
     # matrix: score, wts, mu,fl,err
-    mu_mtx  <- matrix(mu, nrow=nr,ncol=nc,byrow=TRUE) # 
-    fl_mtx  <- matrix(fl, nrow=nr,ncol=nc,byrow=TRUE) # loading_m
-    err_mtx <- matrix(err,nrow=nr,ncol=nc,byrow=TRUE) # delta_m
+    mu  <- matrix(par[grepl("mu", names(par))], nrow=nr,ncol=nc,byrow=TRUE) # 
+    fl  <- matrix(par[grepl("fl", names(par))], nrow=nr,ncol=nc,byrow=TRUE) # loading_m
+    err <- abs(matrix(par[grepl("err", names(par))],nrow=nr,ncol=nc,byrow=TRUE)) # delta_m
     
     #
-    log_fh <- - 1/2*log(2*pi) + rowSums(-wts/2 * (log(2*pi)+2*log(err_mtx)), na.rm=TRUE)
-    ah     <- - 1/2 * (1+rowSums(wts * fl_mtx^2 / err_mtx^2,na.rm=TRUE))
-    bh     <- rowSums(wts/err_mtx^2 * (score-mu_mtx) * fl_mtx,  na.rm=TRUE)
-    ch     <- rowSums(-wts / (2 * err_mtx^2) * (score-mu_mtx)^2,na.rm=TRUE)
+    log_fh <- - 1/2*log(2*pi) + rowSums(-wts/2 * (log(2*pi)+2*log(err)), na.rm=TRUE)
+    ah     <- - 1/2 * (1+rowSums(wts * fl^2 / err^2,na.rm=TRUE))
+    bh     <- rowSums(wts/err^2 * (score-mu) * fl,  na.rm=TRUE)
+    ch     <- rowSums(-wts / (2 * err^2) * (score-mu)^2,na.rm=TRUE)
     
+    #
     -sum(log_fh + ch -bh^2/(4*ah) + log(-pi/ah)/2, na.rm=TRUE)
 }
-venll18(par=init,score=mstbl_std, wts=wts_tbl)  
-microbenchmark::microbenchmark(re1 = venll18(par=init,score=mstbl_std, wts=wts_tbl))
-# l <- lineprof::lineprof(venll16(par=init,score=mstbl_std, wts=wts_tbl,cc,qpoints))
+fn18(par=init,score=mstbl_std, wts=wts_tbl)  
+microbenchmark::microbenchmark(re1 = fn18(par=init,score=mstbl_std, wts=wts_tbl))
+# l <- lineprof::lineprof(fn18(par=init,score=mstbl_std, wts=wts_tbl,cc,qpoints))
 ```
+
+
 
 #### negLogLikFun-16  
 ```{r v16, echo = FALSE}
@@ -82,6 +89,72 @@ venll16 <- function(par,score,wts) {
     -sum(log_fh + ch -bh^2/(4*ah) + log(-pi/ah)/2, na.rm=TRUE)
 }
 venll16(par=init,score=mstbl_std, wts=wts_tbl)  
-microbenchmark::microbenchmark(re1 = venll16(par=init,score=mstbl_std, wts=wts_tbl))
-# l <- lineprof::lineprof(venll16(par=init,score=mstbl_std, wts=wts_tbl,cc,qpoints))
+microbenchmark::microbenchmark(re1 = venll16(par=init,score=mstbl_std, wts=wts_tbl))  
+# l <- lineprof::lineprof(venll16(par=init,score=mstbl_std, wts=wts_tbl,cc,qpoints))  
 ```
+
+```{r v13, echo = FALSE}
+qpoints= 5000
+cc <- pracma::gaussHermite(qpoints);
+fv  <- 1.4142135623730951 * cc$x
+logccw <- log(cc$w)
+dnorm2 <- function(x,mean=0,sd=1) {-(log(2 * pi) +2*log(sd)+((x-mean)/sd)^2)/2}
+
+# simplify code. set the variance to 1. 
+set.seed(100)
+v=1
+# speedup Vectorized Estimation function
+venll13 <- function(par,score,wts,cc,qpoints) {
+    # Reconstruction of the parameters
+    nr <- nrow(score); nc <- ncol(score)
+    mu    <- par[grepl("mu", names(par))]         #
+    fl    <- par[grepl("fl", names(par))]         # factor loading
+    err   <- par[grepl("err", names(par))]
+    
+    # fv matrix
+    fv  <- 1.4142135623730951 * cc$x
+
+    # Weighted log likelyhood
+    # 3D array: 
+    wts_arr   <- aperm(array(wts,  dim=c(nr,nc,qpoints)),c(2,3,1))
+    score_arr <- aperm(array(score,dim=c(nr,nc,qpoints)),c(2,3,1))
+    means_arr <- mu+c(fl %o% fv)
+    wll_mtx   <- colSums(wts_arr * dnorm2(score_arr, mean=c(means_arr), sd = err),na.rm=TRUE)
+    
+    # Gaussian quadrature integral approximation
+    # gqi <- log(sum(exp(joint_mtx + log(cc$w) +(cc$x)^2),na.rm=TRUE))
+    # log(2*pi)/2 = 0.91893853320467267=dnorm_cpp(cc$x * sqrt(2), mean=0,sd=1) +(cc$x)^2; 
+    # log(sqrt(2))=0.3465735902799727
+    gqi <- matrixStats::colLogSumExps(log(cc$w) + wll_mtx - 0.91893853320467267,na.rm=TRUE)
+    -sum(gqi +0.3465735902799727, na.rm=TRUE)
+}
+venll13(par=init,score=mstbl_std, wts=wts_tbl,cc,qpoints) -33827.421673314653
+microbenchmark::microbenchmark(re1 = venll13(par=init,score=mstbl_std, wts=wts_tbl,cc,qpoints))
+# l <- lineprof::lineprof(venll12(par=init,score=mstbl_std, wts=wts_tbl,fv,logccw,qpoints))
+
+```
+
+```{r}
+# setup
+qpoints= 5000
+cc <- pracma::gaussHermite(qpoints);
+fv  <- 1.4142135623730951 * cc$x
+logccw <- log(cc$w)
+dnorm2 <- function(x,mean=0,sd=1) {-(log(2 * pi) +2*log(sd)+((x-mean)/sd)^2)/2}
+
+sapply(names(subdat),function(group){
+    mstbl <- as.matrix(subdat[[group]]$mstbl_std)
+    wts   <- as.matrix(subdat[[group]]$wtbl)
+    
+    # Setup and initialize the parameters
+    nc <- ncol(mstbl)
+    init <- unlist(list(mu  = rep(0, nc),
+                               fl  = rep(1, nc),
+                               err = rep(1, nc)))
+    
+    venll13(par=init,score=mstbl, wts=wts,cc,qpoints) - fn18(par=init,score=mstbl, wts=wts)
+}, simplify = FALSE)
+
+
+```
+

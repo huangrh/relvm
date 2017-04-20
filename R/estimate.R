@@ -51,7 +51,7 @@ relvm <- function(object,groups=NULL,fit=list(init=NULL,predict=TRUE)) {
     # snowfall::sfInit(parallel=TRUE,cpus=2);snowfall::sfExportAll()
     # snowfall::sfExport(create_measure_tbl)
 
-    allout <- sapply(groups, relvm_single3, df=alldf,
+    allout <- sapply(groups, relvm_single, df=alldf,
                       init = init, predict = predict,simplify = FALSE)
 
     # snowfall::sfRemoveAll()
@@ -66,6 +66,7 @@ relvm <- function(object,groups=NULL,fit=list(init=NULL,predict=TRUE)) {
 
     # Calculate the summary score.
     hospital_score <- rstarating::sum_score(preds)
+    hospital_score <- merge(x=hospital_score,y=object$report_indicator,by="provider_id",all=TRUE)
 
     # Merge factor loadings and other parametes.
     pars <- data.frame()
@@ -101,7 +102,7 @@ relvm <- function(object,groups=NULL,fit=list(init=NULL,predict=TRUE)) {
 #'
 #' @return An object of S3 class "relvm" with estimated parametes.
 #'
-relvm_single3 <- function(group, df, init, predict) {
+relvm_single <- function(group, df, init, predict) {
     # -------------------------------------------------------#
     # Prepare to fit
     # start of the cycle
@@ -116,9 +117,9 @@ relvm_single3 <- function(group, df, init, predict) {
     # Setup and initialize the parameters
     nc <- ncol(mstbl_std);
     if (is.null(init)) {
-        init <- unlist(list(mu  = rep(0.5, nc),
-                            fl  = rep(0.5, nc),
-                            err = rep(0.5, nc)))}
+        init <- unlist(list(mu  = rep(0, nc),
+                            fl  = rep(0.85, nc),
+                            err = rep(0.85, nc)))}
 
 
     #--------------------------------------------------------#
@@ -126,7 +127,7 @@ relvm_single3 <- function(group, df, init, predict) {
     fit <- optim(par     = init,      # Model parameter
                  fn      = venll18, # venll11m,   # Estimation function
                  gr      = NULL,
-                 method  = "L-BFGS-B",
+                 method  = "L-BFGS-B", # "L-BFGS-B"
                  control = list(maxit=1000), # set factr=1e-8
                  hessian = FALSE,
                  score   = mstbl_std,
@@ -172,21 +173,19 @@ relvm_single3 <- function(group, df, init, predict) {
 # Simplified Vectorized Estimation function
 venll18 <- function(par,score,wts) {
     nr <- nrow(score); nc <- ncol(score)
-    mu    <- par[grepl("mu", names(par))]         #
-    fl    <- par[grepl("fl", names(par))]         # factor loading
-    err   <- par[grepl("err", names(par))]
 
     # matrix: score, wts, mu,fl,err
-    mu_mtx  <- matrix(mu, nrow=nr,ncol=nc,byrow=TRUE) #
-    fl_mtx  <- matrix(fl, nrow=nr,ncol=nc,byrow=TRUE) # loading_m
-    err_mtx <- matrix(err,nrow=nr,ncol=nc,byrow=TRUE) # delta_m
+    mu  <- matrix(par[grepl("mu", names(par))], nrow=nr,ncol=nc,byrow=TRUE) #
+    fl  <- matrix(par[grepl("fl", names(par))], nrow=nr,ncol=nc,byrow=TRUE) # loading_m
+    err <- abs(matrix(par[grepl("err", names(par))],nrow=nr,ncol=nc,byrow=TRUE)) # delta_m
 
     #
-    log_fh <- - 1/2*log(2*pi) + rowSums(-wts/2 * (log(2*pi)+2*log(err_mtx)), na.rm=TRUE)
-    ah     <- - 1/2 * (1+rowSums(wts * fl_mtx^2 / err_mtx^2,na.rm=TRUE))
-    bh     <- rowSums(wts/err_mtx^2 * (score-mu_mtx) * fl_mtx,  na.rm=TRUE)
-    ch     <- rowSums(-wts / (2 * err_mtx^2) * (score-mu_mtx)^2,na.rm=TRUE)
+    log_fh <- - 1/2*log(2*pi) + rowSums(-wts/2 * (log(2*pi)+2*log(err)), na.rm=TRUE)
+    ah     <- - 1/2 * (1+rowSums(wts * fl^2 / err^2,na.rm=TRUE))
+    bh     <- rowSums(wts/err^2 * (score-mu) * fl,  na.rm=TRUE)
+    ch     <- rowSums(-wts / (2 * err^2) * (score-mu)^2,na.rm=TRUE)
 
+    #
     -sum(log_fh + ch -bh^2/(4*ah) + log(-pi/ah)/2, na.rm=TRUE)
 }
 
