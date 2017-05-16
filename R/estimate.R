@@ -24,7 +24,7 @@ merge_default = function(x,y) {
 #'
 #' @export
 #'
-relvm <- function(object,groups=NULL,fit=list(init=NULL,predict=TRUE)) {
+relvm <- function(object,groups=NULL,fit=list(init=NULL)) {
 
     # -------------------------------------------------------
     # Merge both tables of the measure score and weights.
@@ -66,7 +66,7 @@ relvm <- function(object,groups=NULL,fit=list(init=NULL,predict=TRUE)) {
 
     # Calculate the summary score.
     hospital_score <- rstarating::sum_score(preds)
-    hospital_score <- merge(x=hospital_score,y=object$report_indicator,by="provider_id",all=TRUE)
+
 
     # Merge factor loadings and other parametes.
     pars <- data.frame()
@@ -118,8 +118,8 @@ relvm_single <- function(group, df, init, predict) {
     nc <- ncol(mstbl_std);
     if (is.null(init)) {
         init <- unlist(list(mu  = rep(0, nc),
-                            fl  = rep(0.85, nc),
-                            err = rep(0.85, nc)))}
+                            fl  = rep(0.8, nc),
+                            err = rep(0.8, nc)))}
 
 
     #--------------------------------------------------------#

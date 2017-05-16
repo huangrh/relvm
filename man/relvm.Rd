@@ -7,7 +7,7 @@
 \alias{relvm-package}
 \title{Multiple Estimation Of The Random Effect Latent Variable Model Parameters}
 \usage{
-relvm(object, groups = NULL, fit = list(init = NULL, predict = TRUE))
+relvm(object, groups = NULL, fit = list(init = NULL))
 }
 \arguments{
 \item{object}{A mstbl object.}
