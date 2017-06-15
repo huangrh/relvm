@@ -1,3 +1,21 @@
+# Copyright (C) 2016-2017 Ren-Huai Huang <huangrenhuai@gmail.com>
+#
+# This file is part of relvm.
+#
+# relvm is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# relvm is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with relvm.  If not, see <http://www.gnu.org/licenses/>.
+
+
 # Simplified normal density function.
 dnorm2 <- function(x,mean=0,sd=1) -(log(2 * pi) +2*log(sd)+((x-mean)/sd)^2)/2
 
@@ -9,9 +27,11 @@ merge_default = function(x,y) {
         x[iy] = y[iy]}
     x}
 
-#' Multiple Estimation Of The Random Effect Latent Variable Model Parameters
+#' Random Effect Latent Variable Model By Quadrature Approximation
 #'
-#' Estimate multiple groups of the random effect latent variable model
+#' Estimate multiple groups of the random effect latent variable model by gauss
+#' hermite quadrature.
+#'
 #'
 #' @param object A mstbl object.
 #' @param groups A vector of measure group names. The default is NULL, in which
@@ -29,7 +49,7 @@ merge_default = function(x,y) {
 #'
 #' @export
 #'
-relvm_app <- function(object,groups=NULL,fit=list(qpoints=30,init=NULL,predict=TRUE)) {
+relvm_quad <- function(object,groups=NULL,fit=list(qpoints=30,init=NULL,predict=TRUE)) {
 
     # -------------------------------------------------------
     # Merge both tables of the measure score and weights.
@@ -137,7 +157,7 @@ relvm_single_app <- function(group, df, qpoints,init,predict,adaptive) {
     #--------------------------------------------------------#
     # Fit the function
     fit <- optim(par     = init,      # Model parameter
-                 fn      = venll11m, # venll11m,   # Estimation function
+                 fn      = venll11m,  # venll11m,   # Estimation function
                  gr      = NULL,
                  method  = "L-BFGS-B",
                  control = list(maxit=1000), # set factr=1e-8

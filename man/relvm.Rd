@@ -24,7 +24,7 @@ others. \item predict: The default is TRUE.}}
 An list of S3 object of class "relvm" with estimated parametes.
 }
 \description{
-Estimate multiple groups of the random effect latent variable model
+Estimate multiple measure groups of the random effect latent variable model
 
 relvm.
 }

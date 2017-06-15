@@ -1,4 +1,19 @@
-#'
+# Copyright (C) 2016-2017 Ren-Huai Huang <huangrenhuai@gmail.com>
+#
+# This file is part of relvm.
+#
+# relvm is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# relvm is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with relvm.  If not, see <http://www.gnu.org/licenses/>.
 
 
 #' S3 method of print for relvm class
@@ -22,27 +37,6 @@ print.relvm <- function(object,...) {
 }
 
 
-#' Output Directory
-#'
-#' Check the input string as a directory. Create a directory if it doesn't exists.
-#'
-#' @param x A full path directory string.
-#'
-#' @return A directory string.
-#'
-#' @export
-out_dir <- function(x) {
-    #x <- gsub("\\","/",x)
-    if (!dir.exists(x)) dir.create(x,recursive=TRUE)
-    x
-}
-
-#' Pipe
-#'
-#' Pipe function from magrittr package.
-#'
-#'
-`%>%` <- magrittr:::pipe()
 
 
 

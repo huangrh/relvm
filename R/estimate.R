@@ -1,14 +1,24 @@
+# Copyright (C) 2016-2017 Ren-Huai Huang <huangrenhuai@gmail.com>
 #
-merge_default = function(x,y) {
-    i = is.na(match(names(y), names(x)))
-    if (any(i)) {
-        iy = names(y)[i];
-        x[iy] = y[iy]}
-    x}
+# This file is part of relvm.
+#
+# relvm is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# relvm is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with relvm.  If not, see <http://www.gnu.org/licenses/>.
+
 
 #' Multiple Estimation Of The Random Effect Latent Variable Model Parameters
 #'
-#' Estimate multiple groups of the random effect latent variable model
+#' Estimate multiple measure groups of the random effect latent variable model
 #'
 #' @param object A mstbl object.
 #' @param groups A vector of measure group names. The default is NULL, in which
@@ -51,8 +61,8 @@ relvm <- function(object,groups=NULL,fit=list(init=NULL)) {
     # snowfall::sfInit(parallel=TRUE,cpus=2);snowfall::sfExportAll()
     # snowfall::sfExport(create_measure_tbl)
 
-    allout <- sapply(groups, relvm_single, df=alldf,
-                      init = init, predict = predict,simplify = FALSE)
+    allout <- sapply(groups, relvm_single_true, df=alldf,
+                     init = init, predict = predict,simplify = FALSE)
 
     # snowfall::sfRemoveAll()
     # snowfall::sfStop()
@@ -89,6 +99,15 @@ relvm <- function(object,groups=NULL,fit=list(init=NULL)) {
 }
 
 
+# Default parameter helper:
+merge_default = function(x,y) {
+    i = is.na(match(names(y), names(x)))
+    if (any(i)) {
+        iy = names(y)[i];
+        x[iy] = y[iy]}
+    x}
+
+
 #' Estimation Of The Random Effect Latent Variable Model Parameters
 #'
 #' Estimate the random effect latent variable model
@@ -102,7 +121,7 @@ relvm <- function(object,groups=NULL,fit=list(init=NULL)) {
 #'
 #' @return An object of S3 class "relvm" with estimated parametes.
 #'
-relvm_single <- function(group, df, init, predict) {
+relvm_single_true <- function(group, df, init, predict) {
     # -------------------------------------------------------#
     # Prepare to fit
     # start of the cycle

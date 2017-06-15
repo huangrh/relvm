@@ -1,3 +1,21 @@
+# Copyright (C) 2016-2017 Ren-Huai Huang <huangrenhuai@gmail.com>
+#
+# This file is part of relvm.
+#
+# relvm is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# relvm is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with relvm.  If not, see <http://www.gnu.org/licenses/>.
+
+
 #' Group Score Prediction Interface
 #'
 #' Predict the group scores (random effect latent variabl) from the extimated
@@ -43,7 +61,7 @@ pred <- function(score_tbl,wts_tbl,pms){
         # fit the function
         fv <- 1;
         fit <- optim(par     = fv,     # factor variable / latent variable
-                     fn      = pnll_cpp,   # prediction function
+                     fn      = pnll,   # prediction function
                      gr      = NULL,
                      method  = "BFGS",
                      control = list(maxit=5200),
@@ -61,19 +79,9 @@ pred <- function(score_tbl,wts_tbl,pms){
     (out <- t(out))
 }
 
-
 # Prediction negLogLik Function
 pnll <- function(fv, score_row, wts_row, err,mu,fl) {
-
     # negtive log likelyhood
-    # out1  <- wts_row * (dnorm(score_row, mean=means, sd = err, log=TRUE))
-    # out2  <- dnorm(fv, mean=0,sd=1,log=TRUE)
-    # -sum(out1,out2,na.rm=TRUE)
-    # -sum(wts_row*dnorm2(score_row, mean=means, sd = err),dnorm_cpp(fv, mean=0,sd=1),na.rm=TRUE)
-    sum(wts_row*(0.79817986835+2*log(err)+((score_row-mu - fl * fv)/err)^2)/2,
+    sum(wts_row*(0.79817986835 + log(err^2) + ((score_row-mu - fl * fv)/err)^2)/2,
         (0.79817986835+(fv)^2)/2,na.rm=TRUE)
-    # -sum(wts_row * dnorm(score_row,
-    #                      mean=pms[["mu"]] + pms[["fl"]] * fv,
-    #                      sd = pms[["err"]], log=TRUE),
-    #      dnorm(fv, mean=0,sd=1,log=TRUE),na.rm=TRUE)
 }

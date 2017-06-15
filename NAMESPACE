@@ -2,12 +2,9 @@
 
 S3method(predict,relvm)
 S3method(print,relvm)
-export(arrayC)
-export(dnorm_cpp)
 export(out_dir)
-export(pnll_cpp)
 export(relvm)
-export(relvm_app)
+export(relvm_quad)
 export(subgroup)
 importFrom(Rcpp,sourceCpp)
 importFrom(pracma,hessian)
