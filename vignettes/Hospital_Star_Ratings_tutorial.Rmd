@@ -28,7 +28,6 @@ x       <- cms2016oct_input
 object  <-  x <- mstbl(x)
 
 # LVM model fitting. 
-# fitx_app <- relvm_quad(x)
 fitx       <-   relvm(x)
 
 fitx       <-   relvm_quad(x)

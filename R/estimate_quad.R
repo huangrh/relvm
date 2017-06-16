@@ -16,17 +16,6 @@
 # along with relvm.  If not, see <http://www.gnu.org/licenses/>.
 
 
-# Simplified normal density function.
-dnorm2 <- function(x,mean=0,sd=1) -(log(2 * pi) +2*log(sd)+((x-mean)/sd)^2)/2
-
-#
-merge_default = function(x,y) {
-    i = is.na(match(names(y), names(x)))
-    if (any(i)) {
-        iy = names(y)[i];
-        x[iy] = y[iy]}
-    x}
-
 #' Random Effect Latent Variable Model By Quadrature Approximation
 #'
 #' Estimate multiple groups of the random effect latent variable model by gauss
@@ -113,6 +102,16 @@ relvm_quad <- function(object,groups=NULL,fit=list(qpoints=30,init=NULL,predict=
     (allout)
 }
 
+# Simplified normal density function.
+dnorm2 <- function(x,mean=0,sd=1) -(log(2 * pi) +2*log(sd)+((x-mean)/sd)^2)/2
+
+#
+merge_default = function(x,y) {
+    i = is.na(match(names(y), names(x)))
+    if (any(i)) {
+        iy = names(y)[i];
+        x[iy] = y[iy]}
+    x}
 
 #' Estimation Of The Random Effect Latent Variable Model Parameters
 #'
@@ -257,7 +256,7 @@ venll11m <- function(par,score,wts,cc,qpoints) {
     wll_mtx   <- colSums(wts_arr * dnorm2(score_arr, mean=means_arr, sd = err),na.rm=TRUE)
 
     # Joint probability
-    joint_mtx <- wll_mtx +  dnorm_cpp(fv_mtx, mean=0,sd=1)
+    joint_mtx <- wll_mtx +  dnorm2(fv_mtx, mean=0,sd=1)
 
     # Gaussian quadrature integral approximation
     gqi <- matrixStats::colLogSumExps(joint_mtx + log(cc$w) +(cc$x)^2,na.rm=TRUE)
