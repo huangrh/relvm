@@ -11,7 +11,7 @@ The initial goal is to reimplement the [SAS-Pack](http://www.qualitynet.org/dcs/
 -----
 ### Installation   
  
-> require(devtools);  # Install the package devtools if you didn't do so 
+> require(devtools);  # Install the package devtools if you didn't do so.    
 > devtools::install_github("huangrh/rstarating");  
 > devtools::install_github("huangrh/relvm");  
 > devtools::install_github("huangrh/rclus");  
