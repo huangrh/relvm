@@ -28,7 +28,7 @@ x       <- cms2016oct_input
 object  <-  x <- mstbl(x)
 
 # LVM model fitting. 
-fitx       <-   relvm(x)
+# fitx       <-   relvm(x)
 
 fitx       <-   relvm_quad(x)
 # K-means clustering.
