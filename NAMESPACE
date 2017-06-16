@@ -2,10 +2,7 @@
 
 S3method(predict,relvm)
 S3method(print,relvm)
-export(out_dir)
 export(relvm)
 export(relvm_quad)
 export(subgroup)
-importFrom(Rcpp,sourceCpp)
 importFrom(pracma,hessian)
-useDynLib(relvm)

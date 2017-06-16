@@ -9,7 +9,6 @@ Description: Random Effect Laten Variable Model For Overall hospital quality
 License: GPL3
 LazyData: TRUE
 RoxygenNote: 6.0.1
-LinkingTo: Rcpp
 Depends: R (>= 3.3.2)
 Suggests:
     knitr,

@@ -77,7 +77,7 @@ relvm_quad <- function(object,groups=NULL,fit=list(qpoints=30,init=NULL,predict=
     # snowfall::sfInit(parallel=TRUE,cpus=2);snowfall::sfExportAll()
     # snowfall::sfExport(create_measure_tbl)
 
-    allout <- sapply(groups, relvm_single_app, df=alldf, qpoints=qpoints,
+    allout <- sapply(groups, relvm_single_quad, df=alldf, qpoints=qpoints,
                       init = init, predict = predict, adaptive=adaptive,simplify = FALSE)
 
     # snowfall::sfRemoveAll()
@@ -128,7 +128,7 @@ relvm_quad <- function(object,groups=NULL,fit=list(qpoints=30,init=NULL,predict=
 #'
 #' @return An object of S3 class "relvm" with estimated parametes.
 #'
-relvm_single_app <- function(group, df, qpoints,init,predict,adaptive) {
+relvm_single_quad <- function(group, df, qpoints,init,predict,adaptive) {
     # -------------------------------------------------------#
     # Prepare to fit
     # start of the cycle
