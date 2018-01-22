@@ -3,6 +3,7 @@
 S3method(predict,relvm)
 S3method(print,relvm)
 export(relvm)
-export(relvm_quad)
+export(relvm_adaptive)
+export(relvm_noad)
 export(subgroup)
 importFrom(pracma,hessian)

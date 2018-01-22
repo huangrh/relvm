@@ -16,11 +16,12 @@
 # along with relvm.  If not, see <http://www.gnu.org/licenses/>.
 
 
-#' Random Effect Latent Variable Model By Quadrature Approximation
+
+#' Multiple Estimation Of The Random Effect Latent Variable Model Parameters
 #'
-#' Estimate multiple groups of the random effect latent variable model by gauss
-#' hermite quadrature.
+#' Estimate multiple groups of the random effect latent variable model
 #'
+#' Ad = adaptive
 #'
 #' @param object A mstbl object.
 #' @param groups A vector of measure group names. The default is NULL, in which
@@ -30,7 +31,7 @@
 #'   term in a list. fl is the factor loading. They will be initialized
 #'   generally if it is null. The default is a list with for all mu and one for
 #'   others. \item predict: The default is TRUE. \item adaptive: noad, no
-#'   adaptive or ad, use adaptive.}
+#'   adaptive or ad, use adaptive. }
 #'
 #' @return An list of S3 object of class "relvm" with estimated parametes.
 #' @seealso \code{\link{mstbl}}
@@ -38,7 +39,12 @@
 #'
 #' @export
 #'
-relvm_quad <- function(object,groups=NULL,fit=list(qpoints=30,init=NULL,predict=TRUE)) {
+relvm_adaptive <- function(object,
+                     groups=NULL,
+                     fit=list(qpoints=15,
+                              init=NULL,
+                              predict=TRUE,
+                              adaptive=c("ad","noad"))) {
 
     # -------------------------------------------------------
     # Merge both tables of the measure score and weights.
@@ -53,25 +59,30 @@ relvm_quad <- function(object,groups=NULL,fit=list(qpoints=30,init=NULL,predict=
         groups <- groups[groups %in% all_groups]
     } else stop("The group name do not match.")
 
-    # Fit control
-    fit.default = list(qpoints = 30,init=NULL,predict=TRUE,adaptive=c("noad","ad"))
-    fit         = merge_default(x=fit,y=fit.default)
+    # Fit control default
+    fit_default   <- list(qpoints = 15,
+                          init    = NULL,
+                          predict = TRUE,
+                          adaptive= c("ad","noad"))
+    extra_default <- fit_default[!(names(fit_default) %in% names(fit))]
+    fit[names(extra_default)] <- extra_default
+
+    #
     qpoints = fit[["qpoints"]]
     init    = fit[["init"]]
     predict = fit[["predict"]]
     adaptive= fit[["adaptive"]][1]
 
-    # ------------------------------------------------------------------#
-    # Call relvm_single
-    # snowfall::sfInit(parallel=TRUE,cpus=2);snowfall::sfExportAll()
-    # snowfall::sfExport(create_measure_tbl)
 
-    allout <- sapply(groups, relvm_single_quad, df=alldf, qpoints=qpoints,
+    # ------------------------------------------------------------------#
+    start_time = Sys.time()
+    cat(sprintf("Fitting start at: %-15s by method: %-15s\n",start_time,adaptive))
+
+    # Call relvm_single
+    allout <- sapply(groups, relvm_adaptive_single, df=alldf, qpoints=qpoints,
                       init = init, predict = predict, adaptive=adaptive,simplify = FALSE)
 
-    # snowfall::sfRemoveAll()
-    # snowfall::sfStop()
-
+    cat("\n","Total time: ", as.character.Date(Sys.time() - start_time),"\n")
     # ------------------------------------------------------------------#
     # After Relvm:
     # Merge the predicted group score if there is multiple group.
@@ -81,12 +92,15 @@ relvm_quad <- function(object,groups=NULL,fit=list(qpoints=30,init=NULL,predict=
 
     # Calculate the summary score.
     hospital_score <- rstarating::sum_score(preds)
+    hospital_score <- merge.data.frame(x=hospital_score,y=object$report_indicator,
+                                       by='provider_id',all.x=TRUE)
+    hospital_score <- subset(hospital_score, report_indicator == 1)
 
     # Merge factor loadings and other parametes.
     pars <- data.frame()
     for (group in allout) {pars = rbind(pars,group$par)}
 
-    # convergence
+    # groups: convergence, value, message, and counts
     convergence<- data.frame(convergence=vapply(allout,function(x) {x$convergence},c(0)))
     value      <- data.frame(value=vapply(allout,  function(x) x$value,c(0)))
     message    <- data.frame(message=vapply(allout,function(x) x$message,"0"),stringsAsFactors = FALSE)
@@ -95,23 +109,13 @@ relvm_quad <- function(object,groups=NULL,fit=list(qpoints=30,init=NULL,predict=
     #output
     allout$groups <- structure(list(preds=preds,pars=pars,
                                     summary_score=hospital_score,
-                                    counts= as.matrix(counts),
-                                    value = as.matrix(value),
-                                    message=as.matrix(message),
+                                    counts  = as.matrix(counts),
+                                    value   = as.matrix(value),
+                                    message = as.matrix(message),
                                     convergence = as.matrix(convergence)),class="relvm")
     (allout)
 }
 
-# Simplified normal density function.
-dnorm2 <- function(x,mean=0,sd=1) -(log(2 * pi) +2*log(sd)+((x-mean)/sd)^2)/2
-
-#
-merge_default = function(x,y) {
-    i = is.na(match(names(y), names(x)))
-    if (any(i)) {
-        iy = names(y)[i];
-        x[iy] = y[iy]}
-    x}
 
 #' Estimation Of The Random Effect Latent Variable Model Parameters
 #'
@@ -127,11 +131,12 @@ merge_default = function(x,y) {
 #'
 #' @return An object of S3 class "relvm" with estimated parametes.
 #'
-relvm_single_quad <- function(group, df, qpoints,init,predict,adaptive) {
+relvm_adaptive_single <- function(group, df, qpoints,init,predict,adaptive) {
     # -------------------------------------------------------#
     # Prepare to fit
     # start of the cycle
     start_time = Sys.time()
+    cat(adaptive,"-",qpoints,"qpts",": ")
     cat(sprintf("Fitting: %-15s =>",group))
 
     # data table & weight table
@@ -144,27 +149,25 @@ relvm_single_quad <- function(group, df, qpoints,init,predict,adaptive) {
     if (is.null(init)) {
         init <- unlist(list(mu  = rep(0.5, nc),
                             fl  = rep(0.5, nc),
-                            err = rep(0.5, nc)))}
+                            err = rep(0.5, nc)))
+    }
+
     # cc$x & cc$w
     cc <- pracma::gaussHermite(qpoints);
-    ccidx <- cc$w>1e-36;
-    cc$w = cc$w[ccidx];
-    cc$x = cc$x[ccidx];
-    cc_len=length(cc$x);
-
 
     #--------------------------------------------------------#
     # Fit the function
     fit <- optim(par     = init,      # Model parameter
-                 fn      = venll11m,  # venll11m,   # Estimation function
+                 fn      = venll10a,    # Estimation function
                  gr      = NULL,
                  method  = "L-BFGS-B",
-                 control = list(maxit=1000), # set factr=1e-8
+                 control = list(maxit=1000),
                  hessian = FALSE,
                  score   = mstbl_std,
                  wts     = wts_tbl,
                  cc      = cc,
-                 qpoints = cc_len)
+                 qpoints = qpoints,
+                 adaptive= adaptive)
 
     #--------------------------------------------------------#
     # Output the fitting
@@ -178,14 +181,14 @@ relvm_single_quad <- function(group, df, qpoints,init,predict,adaptive) {
                               row.names=NULL)
     # Prediction
     if (identical(predict, TRUE)) {
-        pred_out          <- relvm:::pred(mstbl_std,wts_tbl,pms=fit$par);
+        pred_out           <- relvm:::pred(mstbl_std,wts_tbl,pms=fit$par);
 
-        colnames(pred_out)<- paste(colnames(pred_out),group,sep="_")
-        pred_out          <- cbind(subdat$pid,pred_out)
-        fit$pred          <- pred_out[,1:2]
+        colnames(pred_out) <- paste(colnames(pred_out),group,sep="_")
+        pred_out           <- cbind(subdat$pid,pred_out)
+        fit$pred           <- pred_out[,1:2]
 
         #
-        fit$stderr        <- pred_out[,c(1,3)]
+        fit$stderr         <- pred_out[,c(1,3)]
     }
 
     # Add three fields to the output
@@ -204,48 +207,36 @@ relvm_single_quad <- function(group, df, qpoints,init,predict,adaptive) {
 }
 
 
-# object function
-venll12 <- function(par,score,wts,cc,qpoints) {
+
+# adaptive estimate function
+venll10a <- function(par,score,wts,cc,qpoints,adaptive) {
+
+    # Simplified normal density function.
+    dnorm2 <- function(x,mean=0,sd=1) -(log(2 * pi) +2*log(sd)+((x-mean)/sd)^2)/2
+
     # Reconstruction of the parameters
     nr <- nrow(score); nc <- ncol(score)
-    mu    <- par[grepl("mu", names(par))]         #
-    fl    <- par[grepl("fl", names(par))]         # factor loading
-    err   <- par[grepl("err", names(par))]
+    mu <- par[grepl("mu", names(par))]         #
+    fl <- par[grepl("fl", names(par))]         # factor loading
+    err<- par[grepl("err", names(par))]
+    err <- abs(err)
+
+    # Sigma
+    sigma <- switch(adaptive,
+                   ad = {
+                       fitall <- relvm:::pred(score_tbl=score, wts_tbl=wts, pms=list(mu=mu,fl=fl,err=err));
+                       u_hat  <- t(array(fitall[,"pred"],dim=c(nr,qpoints)));
+                       fitall[,"stderr"];},
+
+                   noad= {
+                       u_hat <- array(0,dim=c(qpoints,nr));
+                       sqrt(1/(rowSums((fl^2 * wts/err^2), na.rm = TRUE) + 1));})
+
+    coefs <- 1.41421356237 * sigma # sqrt(2) = 1.4142
+    # coefs <- rep(mean(coefs),length(coefs))
 
     # fv matrix
-    fv  <- 1.4142135623730951 * cc$x
-
-    # Weighted log likelyhood
-    # 3D array:
-    wts_arr   <- aperm(array(wts,  dim=c(nr,nc,qpoints)),c(2,3,1))
-    score_arr <- aperm(array(score,dim=c(nr,nc,qpoints)),c(2,3,1))
-    means_arr <-array(mu+c(fl %o% fv),   dim=c(nc,qpoints,nr))
-    wll_mtx   <- colSums(wts_arr * dnorm2(score_arr, mean=means_arr, sd = err),na.rm=TRUE)
-
-    # Gaussian quadrature integral approximation
-    # gqi <- log(sum(exp(joint_mtx + log(cc$w) +(cc$x)^2),na.rm=TRUE))
-    # log(2*pi)/2 = 0.91893853320467267=dnorm_cpp(cc$x * sqrt(2), mean=0,sd=1) +(cc$x)^2;
-    # log(sqrt(2))=0.3465735902799727
-    gqi <- matrixStats::colLogSumExps(log(cc$w) + wll_mtx - 0.91893853320467267,na.rm=TRUE)
-    -sum(gqi +0.3465735902799727, na.rm=TRUE)
-}
-
-
-
-venll11m <- function(par,score,wts,cc,qpoints) {
-    # Reconstruction of the parameters
-    nr <- nrow(score); nc <- ncol(score)
-    mu    <- par[grepl("mu", names(par))]         #
-    fl    <- par[grepl("fl", names(par))]         # factor loading
-    err   <- par[grepl("err", names(par))]
-    err   <- abs(err)
-
-    # 2nd derivative
-    # coefs <- sqrt(2/(rowSums((fl^2 * wts/err^2), na.rm = TRUE) + 1))
-    coefs <- rep(sqrt(2),nr)
-
-    # fv matrix
-    fv_mtx  <- cc$x %o% coefs
+    fv_mtx  <-  cc$x %o% coefs + u_hat
 
     # 3D array:
     wts_arr   <- aperm(array(wts,  dim=c(nr,nc,qpoints)),c(2,3,1))
@@ -262,4 +253,5 @@ venll11m <- function(par,score,wts,cc,qpoints) {
     gqi <- matrixStats::colLogSumExps(joint_mtx + log(cc$w) +(cc$x)^2,na.rm=TRUE)
     -sum(log(coefs)+gqi, na.rm=TRUE)
 }
+
 

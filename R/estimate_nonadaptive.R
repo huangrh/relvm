@@ -16,17 +16,21 @@
 # along with relvm.  If not, see <http://www.gnu.org/licenses/>.
 
 
-#' Multiple Estimation Of The Random Effect Latent Variable Model Parameters
+#' Random Effect Latent Variable Model By Non Adaptive Quadrature Approximation
 #'
-#' Estimate multiple measure groups of the random effect latent variable model
+#' Estimate multiple groups of the random effect latent variable model by gauss
+#' hermite quadrature.
+#'
 #'
 #' @param object A mstbl object.
 #' @param groups A vector of measure group names. The default is NULL, in which
 #'   case a vector of all groups will be generated accordingly.
-#' @param fit A list of fitting parameters. \itemize{ \item init: Initial values for mu, fl, and err
+#' @param fit A list of fitting parameters. \itemize{ \item qpoints: The numbe
+#'   of the quadrature points. \item init: Initial values for mu, fl, and err
 #'   term in a list. fl is the factor loading. They will be initialized
 #'   generally if it is null. The default is a list with for all mu and one for
-#'   others. \item predict: The default is TRUE.}
+#'   others. \item predict: The default is TRUE. \item adaptive: noad, no
+#'   adaptive or ad, use adaptive.}
 #'
 #' @return An list of S3 object of class "relvm" with estimated parametes.
 #' @seealso \code{\link{mstbl}}
@@ -34,7 +38,7 @@
 #'
 #' @export
 #'
-relvm <- function(object,groups=NULL,fit=list(init=NULL)) {
+relvm_noad <- function(object,groups=NULL,fit=list(qpoints=30,init=NULL,predict=TRUE)) {
 
     # -------------------------------------------------------
     # Merge both tables of the measure score and weights.
@@ -50,22 +54,30 @@ relvm <- function(object,groups=NULL,fit=list(init=NULL)) {
     } else stop("The group name do not match.")
 
     # Fit control
-    fit.default = list(init=NULL,predict=TRUE)
-    fit         = merge_default(x=fit,y=fit.default)
+    fit_default   <- list(qpoints = 30,init=NULL,predict=TRUE,adaptive=c("noad","ad"))
+    extra_default <- fit_default[!(names(fit_default) %in% names(fit))]
+    fit[names(extra_default)] <- extra_default
+    #fit         = merge_default(x=fit,y=fit.default)
 
+    qpoints = fit[["qpoints"]]
     init    = fit[["init"]]
     predict = fit[["predict"]]
+    adaptive= fit[["adaptive"]][1]
 
     # ------------------------------------------------------------------#
-    # Call relvm_single
     start_time = Sys.time()
-    cat(sprintf("Fitting start at: %-15s\n",start_time))
+    cat(sprintf("Fitting started at: %-15s\n",start_time))
 
-    allout <- sapply(groups, relvm_single_true, df=alldf,
-                     init = init, predict = predict,simplify = FALSE)
+    # Call relvm_single
+    # snowfall::sfInit(parallel=TRUE,cpus=2);snowfall::sfExportAll()
+    # snowfall::sfExport(create_measure_tbl)
 
+    allout <- sapply(groups, relvm_single_noad, df=alldf, qpoints=qpoints,
+                      init = init, predict = predict, adaptive=adaptive,simplify = FALSE)
+
+    # snowfall::sfRemoveAll()
+    # snowfall::sfStop()
     cat("\n","Total time: ", as.character.Date(Sys.time() - start_time),"\n")
-
     # ------------------------------------------------------------------#
     # After Relvm:
     # Merge the predicted group score if there is multiple group.
@@ -99,15 +111,10 @@ relvm <- function(object,groups=NULL,fit=list(init=NULL)) {
     (allout)
 }
 
+# Simplified normal density function.
+dnorm2 <- function(x,mean=0,sd=1) -(log(2 * pi) +2*log(sd)+((x-mean)/sd)^2)/2
 
-# Default parameter helper:
-merge_default = function(x,y) {
-    i = is.na(match(names(y), names(x)))
-    if (any(i)) {
-        iy = names(y)[i];
-        x[iy] = y[iy]}
-    x}
-
+#
 
 #' Estimation Of The Random Effect Latent Variable Model Parameters
 #'
@@ -115,6 +122,7 @@ merge_default = function(x,y) {
 #'
 #' @param mstbl_std The standized measure score table.
 #' @param wts_tbl The measure score weight table.
+#' @param qpoints The numbe of the quadrature points.
 #' @param init Initial values for mu, fl, and err term in a list. fl is the
 #'   factor loading. They will be initialized generally if it is null. The
 #'   default is a list with for all mu and one for others.
@@ -122,11 +130,12 @@ merge_default = function(x,y) {
 #'
 #' @return An object of S3 class "relvm" with estimated parametes.
 #'
-relvm_single_true <- function(group, df, init, predict) {
+relvm_single_noad <- function(group, df, qpoints,init,predict,adaptive) {
     # -------------------------------------------------------#
     # Prepare to fit
     # start of the cycle
     start_time = Sys.time()
+    cat(adaptive,"-",qpoints,"qpts",": ")
     cat(sprintf("Fitting: %-15s =>",group))
 
     # data table & weight table
@@ -137,21 +146,29 @@ relvm_single_true <- function(group, df, init, predict) {
     # Setup and initialize the parameters
     nc <- ncol(mstbl_std);
     if (is.null(init)) {
-        init <- unlist(list(mu  = rep(0, nc),
-                            fl  = rep(0.6, nc),
-                            err = rep(0.8, nc)))}
+        init <- unlist(list(mu  = rep(0.5, nc),
+                            fl  = rep(0.5, nc),
+                            err = rep(0.5, nc)))}
+    # cc$x & cc$w
+    cc <- pracma::gaussHermite(qpoints);
+    ccidx <- cc$w>1e-36;
+    cc$w = cc$w[ccidx];
+    cc$x = cc$x[ccidx];
+    cc_len=length(cc$x);
 
 
     #--------------------------------------------------------#
     # Fit the function
     fit <- optim(par     = init,      # Model parameter
-                 fn      = venll18, # venll11m,   # Estimation function
+                 fn      = venll11m,  # venll11m,   # Estimation function
                  gr      = NULL,
-                 method  = "L-BFGS-B", # "L-BFGS-B"
+                 method  = "L-BFGS-B",
                  control = list(maxit=1000), # set factr=1e-8
                  hessian = FALSE,
                  score   = mstbl_std,
-                 wts     = wts_tbl)
+                 wts     = wts_tbl,
+                 cc      = cc,
+                 qpoints = cc_len)
 
     #--------------------------------------------------------#
     # Output the fitting
@@ -190,23 +207,64 @@ relvm_single_true <- function(group, df, init, predict) {
     structure(fit,class="relvm")
 }
 
-# Simplified Vectorized Estimation function
-venll18 <- function(par,score,wts) {
+
+# object function
+venll12 <- function(par,score,wts,cc,qpoints) {
+
+    # Reconstruction of the parameters
     nr <- nrow(score); nc <- ncol(score)
+    mu    <- par[grepl("mu", names(par))]         #
+    fl    <- par[grepl("fl", names(par))]         # factor loading
+    err   <- par[grepl("err", names(par))]
 
-    # matrix: score, wts, mu,fl,err
-    mu  <- matrix(par[grepl("mu", names(par))], nrow=nr,ncol=nc,byrow=TRUE) #
-    fl  <- matrix(par[grepl("fl", names(par))], nrow=nr,ncol=nc,byrow=TRUE) # loading_m
-    err <- abs(matrix(par[grepl("err", names(par))],nrow=nr,ncol=nc,byrow=TRUE)) # delta_m
+    # fv matrix
+    fv  <- 1.4142135623730951 * cc$x
 
-    #
-    log_fh <- - 1/2*log(2*pi) + rowSums(-wts/2 * (log(2*pi)+2*log(err)), na.rm=TRUE)
-    ah     <- - 1/2 * (1+rowSums(wts * fl^2 / err^2,na.rm=TRUE))
-    bh     <- rowSums(wts/err^2 * (score-mu) * fl,  na.rm=TRUE)
-    ch     <- rowSums(-wts / (2 * err^2) * (score-mu)^2,na.rm=TRUE)
+    # Weighted log likelyhood
+    # 3D array:
+    wts_arr   <- aperm(array(wts,  dim=c(nr,nc,qpoints)),c(2,3,1))
+    score_arr <- aperm(array(score,dim=c(nr,nc,qpoints)),c(2,3,1))
+    means_arr <-array(mu+c(fl %o% fv),   dim=c(nc,qpoints,nr))
+    wll_mtx   <- colSums(wts_arr * dnorm2(score_arr, mean=means_arr, sd = err),na.rm=TRUE)
 
-    #
-    -sum(log_fh + ch -bh^2/(4*ah) + log(-pi/ah)/2, na.rm=TRUE)
+    # Gaussian quadrature integral approximation
+    # gqi <- log(sum(exp(joint_mtx + log(cc$w) +(cc$x)^2),na.rm=TRUE))
+    # log(2*pi)/2 = 0.91893853320467267=dnorm_cpp(cc$x * sqrt(2), mean=0,sd=1) +(cc$x)^2;
+    # log(sqrt(2))=0.3465735902799727
+    gqi <- matrixStats::colLogSumExps(log(cc$w) + wll_mtx - 0.91893853320467267,na.rm=TRUE)
+    -sum(gqi +0.3465735902799727, na.rm=TRUE)
 }
 
+
+
+venll11m <- function(par,score,wts,cc,qpoints) {
+    # Reconstruction of the parameters
+    nr <- nrow(score); nc <- ncol(score)
+    mu    <- par[grepl("mu", names(par))]         #
+    fl    <- par[grepl("fl", names(par))]         # factor loading
+    err   <- par[grepl("err", names(par))]
+    err   <- abs(err)
+
+    # 2nd derivative
+    # coefs <- sqrt(2/(rowSums((fl^2 * wts/err^2), na.rm = TRUE) + 1))
+    coefs <- rep(sqrt(2),nr)
+
+    # fv matrix
+    fv_mtx  <- cc$x %o% coefs
+
+    # 3D array:
+    wts_arr   <- aperm(array(wts,  dim=c(nr,nc,qpoints)),c(2,3,1))
+    score_arr <- aperm(array(score,dim=c(nr,nc,qpoints)),c(2,3,1))
+    means_arr <- array(mu,         dim=c(nc,qpoints,nr)) + fl %o% fv_mtx
+
+    # Weighted log likelyhood
+    wll_mtx   <- colSums(wts_arr * dnorm2(score_arr, mean=means_arr, sd = err),na.rm=TRUE)
+
+    # Joint probability
+    joint_mtx <- wll_mtx +  dnorm2(fv_mtx, mean=0,sd=1)
+
+    # Gaussian quadrature integral approximation
+    gqi <- matrixStats::colLogSumExps(joint_mtx + log(cc$w) +(cc$x)^2,na.rm=TRUE)
+    -sum(log(coefs)+gqi, na.rm=TRUE)
+}
 
