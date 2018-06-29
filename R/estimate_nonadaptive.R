@@ -42,7 +42,7 @@ relvm_noad <- function(object,groups=NULL,fit=list(qpoints=30,init=NULL,predict=
 
     # -------------------------------------------------------
     # Merge both tables of the measure score and weights.
-    alldf  <- merge(x=object$mstbl_std, y=object$wtbl, all=TRUE)
+    alldf  <- merge(x=object$mstbl_std, y=object$wtbl, by="ccnid", all=TRUE)
 
     # Check & update "groups"
     mtbl       <- create_measure_tbl(alldf)
@@ -57,7 +57,6 @@ relvm_noad <- function(object,groups=NULL,fit=list(qpoints=30,init=NULL,predict=
     fit_default   <- list(qpoints = 30,init=NULL,predict=TRUE,adaptive=c("noad","ad"))
     extra_default <- fit_default[!(names(fit_default) %in% names(fit))]
     fit[names(extra_default)] <- extra_default
-    #fit         = merge_default(x=fit,y=fit.default)
 
     qpoints = fit[["qpoints"]]
     init    = fit[["init"]]
@@ -81,14 +80,14 @@ relvm_noad <- function(object,groups=NULL,fit=list(qpoints=30,init=NULL,predict=
     # ------------------------------------------------------------------#
     # After Relvm:
     # Merge the predicted group score if there is multiple group.
-    preds <- alldf[,1,drop=FALSE] # take the column "provider_id"
+    preds <- alldf[,1,drop=FALSE] # take the column "ccnid"
     for (group in allout) {preds <- merge(x=preds,y=group$pred,all=TRUE)}
     colnames(preds) <- gsub("pred_","",colnames(preds))
 
     # Calculate the summary score.
     hospital_score <- rstarating::sum_score(preds)
     hospital_score <- merge.data.frame(x=hospital_score,y=object$report_indicator,
-                                       by='provider_id',all.x=TRUE)
+                                       by='ccnid',all.x=TRUE)
     hospital_score <- subset(hospital_score, report_indicator == 1)
 
     # Merge factor loadings and other parametes.
@@ -185,7 +184,7 @@ relvm_single_noad <- function(group, df, qpoints,init,predict,adaptive) {
         pred_out          <- relvm:::pred(mstbl_std,wts_tbl,pms=fit$par);
 
         colnames(pred_out)<- paste(colnames(pred_out),group,sep="_")
-        pred_out          <- cbind(subdat$pid,pred_out)
+        pred_out          <- cbind(subdat$ccnid,pred_out)
         fit$pred          <- pred_out[,1:2]
 
         #
@@ -199,8 +198,8 @@ relvm_single_noad <- function(group, df, qpoints,init,predict,adaptive) {
                               mu = init[grepl("mu", init_names)],
                               err= init[grepl("err",init_names)], row.names=NULL)
 
-    fit$mstbl_std = cbind(subdat$pid,mstbl_std)
-    fit$wtbl      = cbind(subdat$pid,wts_tbl)
+    fit$mstbl_std = cbind(subdat$ccnid,mstbl_std)
+    fit$wtbl      = cbind(subdat$ccnid,wts_tbl)
 
     # Output
     cat(" : ", as.character.Date(Sys.time() - start_time),"\n")

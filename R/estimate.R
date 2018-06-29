@@ -38,7 +38,7 @@ relvm <- function(object,groups=NULL,fit=list(init=NULL)) {
 
     # -------------------------------------------------------
     # Merge both tables of the measure score and weights.
-    alldf  <- merge(x=object$mstbl_std, y=object$wtbl, all=TRUE)
+    alldf  <- merge(x=object$mstbl_std, y=object$wtbl,by = "ccnid",all=TRUE)
 
     # Check & update "groups"
     mtbl       <- create_measure_tbl(alldf)
@@ -50,8 +50,9 @@ relvm <- function(object,groups=NULL,fit=list(init=NULL)) {
     } else stop("The group name do not match.")
 
     # Fit control
-    fit.default = list(init=NULL,predict=TRUE)
-    fit         = merge_default(x=fit,y=fit.default)
+    fit_default   = list(init=NULL,predict=TRUE)
+    extra_default <- fit_default[!(names(fit_default) %in% names(fit))]
+    fit[names(extra_default)] <- extra_default
 
     init    = fit[["init"]]
     predict = fit[["predict"]]
@@ -69,14 +70,14 @@ relvm <- function(object,groups=NULL,fit=list(init=NULL)) {
     # ------------------------------------------------------------------#
     # After Relvm:
     # Merge the predicted group score if there is multiple group.
-    preds <- alldf[,1,drop=FALSE] # take the column "provider_id"
-    for (group in allout) {preds <- merge(x=preds,y=group$pred,all=TRUE)}
+    preds <- alldf[,"ccnid",drop=FALSE] # take the column "ccnid"
+    for (group in allout) {preds <- merge(x=preds,y=group$pred,by="ccnid",all=TRUE)}
     colnames(preds) <- gsub("pred_","",colnames(preds))
 
     # Calculate the summary score.
     hospital_score <- rstarating::sum_score(preds)
     hospital_score <- merge.data.frame(x=hospital_score,y=object$report_indicator,
-                                       by='provider_id',all.x=TRUE)
+                                       by='ccnid',all.x=TRUE)
     hospital_score <- subset(hospital_score, report_indicator == 1)
 
     # Merge factor loadings and other parametes.
@@ -85,36 +86,35 @@ relvm <- function(object,groups=NULL,fit=list(init=NULL)) {
 
     # convergence
     convergence<- data.frame(convergence=vapply(allout,function(x) {x$convergence},c(0)))
-    value      <- data.frame(value=vapply(allout,  function(x) x$value,c(0)))
-    message    <- data.frame(message=vapply(allout,function(x) x$message,"0"),stringsAsFactors = FALSE)
-    counts     <- t(as.data.frame(vapply(allout,   function(x) x$counts,c(0L,0L))))
+    value      <- data.frame(value=vapply(allout,      function(x) x$value,c(0)))
+    message    <- data.frame(message=vapply(allout,    function(x) x$message,"0"),stringsAsFactors = FALSE)
+    counts     <- t(as.data.frame(vapply(allout,       function(x) x$counts,c(0L,0L))))
 
     #output
-    allout$groups <- structure(list(preds=preds,pars=pars,
-                                    summary_score=hospital_score,
-                                    counts= as.matrix(counts),
-                                    value = as.matrix(value),
-                                    message=as.matrix(message),
-                                    convergence = as.matrix(convergence)),class="relvm")
-    (allout)
+    allout$groups <- structure(list(
+        preds        = preds,
+        pars         = pars,
+        summary_score= hospital_score,
+        counts       = as.matrix(counts),
+        value        = as.matrix(value),
+        message      = as.matrix(message),
+        convergence  = as.matrix(convergence),
+        mstbl_std    = object$mstbl_std,
+        wtbl         = object$wtbl
+        ),class="relvm")
+
+    structure(allout, class="relvms")
 }
 
 
-# Default parameter helper:
-merge_default = function(x,y) {
-    i = is.na(match(names(y), names(x)))
-    if (any(i)) {
-        iy = names(y)[i];
-        x[iy] = y[iy]}
-    x}
 
 
 #' Estimation Of The Random Effect Latent Variable Model Parameters
 #'
 #' Estimate the random effect latent variable model
 #'
-#' @param mstbl_std The standized measure score table.
-#' @param wts_tbl The measure score weight table.
+#' @param group A measure group name.
+#' @param df The standardized measure score and measure weight table (alldf).
 #' @param init Initial values for mu, fl, and err term in a list. fl is the
 #'   factor loading. They will be initialized generally if it is null. The
 #'   default is a list with for all mu and one for others.
@@ -138,7 +138,7 @@ relvm_single_true <- function(group, df, init, predict) {
     nc <- ncol(mstbl_std);
     if (is.null(init)) {
         init <- unlist(list(mu  = rep(0, nc),
-                            fl  = rep(0.6, nc),
+                            fl  = rep(0.7, nc),
                             err = rep(0.8, nc)))}
 
 
@@ -168,7 +168,7 @@ relvm_single_true <- function(group, df, init, predict) {
         pred_out          <- relvm:::pred(mstbl_std,wts_tbl,pms=fit$par);
 
         colnames(pred_out)<- paste(colnames(pred_out),group,sep="_")
-        pred_out          <- cbind(subdat$pid,pred_out)
+        pred_out          <- cbind(subdat$ccnid,pred_out)
         fit$pred          <- pred_out[,1:2]
 
         #
@@ -182,8 +182,8 @@ relvm_single_true <- function(group, df, init, predict) {
                               mu = init[grepl("mu", init_names)],
                               err= init[grepl("err",init_names)], row.names=NULL)
 
-    fit$mstbl_std = cbind(subdat$pid,mstbl_std)
-    fit$wtbl      = cbind(subdat$pid,wts_tbl)
+    fit$mstbl_std = cbind(subdat$ccnid,mstbl_std)
+    fit$wtbl      = cbind(subdat$ccnid,wts_tbl)
 
     # Output
     cat(" : ", as.character.Date(Sys.time() - start_time),"\n")

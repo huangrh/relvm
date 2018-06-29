@@ -41,8 +41,8 @@ predict.relvm <- function(object,newdata,level = 0.95){
     wts_tbl   <- as.matrix(wts_tbl[paste(measure_idx,"wt",sep="_")])
 
     object$pred <- pred(score_tbl,wts_tbl,pms = object$par)
-    if (exists("provider_id",as.data.frame(object$mstbl_std))) {
-        object$pred <- cbind(as.data.frame(object$mstbl_std)["provider_id"],object$pred)
+    if (exists("ccnid",as.data.frame(object$mstbl_std))) {
+        object$pred <- cbind(as.data.frame(object$mstbl_std)["ccnid"],object$pred)
     }
 
     object

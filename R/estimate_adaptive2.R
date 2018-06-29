@@ -39,7 +39,7 @@
 #'
 #' @export
 #'
-relvm_adaptive <- function(object,
+relvm_adaptive2 <- function(object,
                      groups=NULL,
                      fit=list(qpoints=15,
                               init=NULL,
@@ -48,7 +48,7 @@ relvm_adaptive <- function(object,
 
     # -------------------------------------------------------
     # Merge both tables of the measure score and weights.
-    alldf  <- merge(x=object$mstbl_std, y=object$wtbl,by="ccnid", all=TRUE)
+    alldf  <- merge(x=object$mstbl_std, y=object$wtbl, all=TRUE)
 
     # Check & update "groups"
     mtbl       <- create_measure_tbl(alldf)
@@ -69,7 +69,7 @@ relvm_adaptive <- function(object,
 
     #
     qpoints = fit[["qpoints"]]
-    init    = fit[["init"]]
+    inits   = fit[["init"]]
     predict = fit[["predict"]]
     adaptive= fit[["adaptive"]][1]
 
@@ -79,8 +79,8 @@ relvm_adaptive <- function(object,
     cat(sprintf("Fitting start at: %-15s by method: %-15s\n",start_time,adaptive))
 
     # Call relvm_single
-    allout <- sapply(groups, relvm_adaptive_single, df=alldf, qpoints=qpoints,
-                      init = init, predict = predict, adaptive=adaptive,simplify = FALSE)
+    allout <- sapply(groups, relvm_adaptive_single2, df=alldf, qpoints=qpoints,
+                      inits = inits, predict = predict, adaptive=adaptive,simplify = FALSE)
 
     cat("\n","Total time: ", as.character.Date(Sys.time() - start_time),"\n")
     # ------------------------------------------------------------------#
@@ -124,14 +124,14 @@ relvm_adaptive <- function(object,
 #' @param mstbl_std The standized measure score table.
 #' @param wts_tbl The measure score weight table.
 #' @param qpoints The numbe of the quadrature points.
-#' @param init Initial values for mu, fl, and err term in a list. fl is the
+#' @param inits Initial values for mu, fl, and err term in a list. fl is the
 #'   factor loading. They will be initialized generally if it is null. The
 #'   default is a list with for all mu and one for others.
 #' @param predict The default is TRUE.
 #'
 #' @return An object of S3 class "relvm" with estimated parametes.
 #'
-relvm_adaptive_single <- function(group, df, qpoints,init,predict,adaptive) {
+relvm_adaptive_single2 <- function(group, df, qpoints,inits,predict,adaptive) {
     # -------------------------------------------------------#
     # Prepare to fit
     # start of the cycle
@@ -140,16 +140,22 @@ relvm_adaptive_single <- function(group, df, qpoints,init,predict,adaptive) {
     cat(sprintf("Fitting: %-15s =>",group))
 
     # data table & weight table
-    subdat    <- sub1group(group,df)
+    subdat    <- relvm:::sub1group(group,df)
     mstbl_std <- as.matrix(subdat$mstbl_std)
     wts_tbl   <- as.matrix(subdat$wtbl)
 
     # Setup and initialize the parameters
     nc <- ncol(mstbl_std);
-    if (is.null(init)) {
+    if (is.null(inits)) {
         init <- unlist(list(mu  = rep(0.5, nc),
                             fl  = rep(0.5, nc),
                             err = rep(0.5, nc)))
+    } else {
+        init_row_idx <- match(colnames(mstbl_std),inits$name)
+        init <- unlist(list(mu  = inits[init_row_idx,"mu"],
+                            fl  = inits[init_row_idx,"fl"],
+                            err = inits[init_row_idx,"err"]))
+
     }
 
     # cc$x & cc$w
@@ -158,7 +164,7 @@ relvm_adaptive_single <- function(group, df, qpoints,init,predict,adaptive) {
     #--------------------------------------------------------#
     # Fit the function
     fit <- optim(par     = init,      # Model parameter
-                 fn      = venll10a,    # Estimation function
+                 fn      = venll10a2,    # Estimation function
                  gr      = NULL,
                  method  = "L-BFGS-B",
                  control = list(maxit=1000),
@@ -209,7 +215,7 @@ relvm_adaptive_single <- function(group, df, qpoints,init,predict,adaptive) {
 
 
 # adaptive estimate function
-venll10a <- function(par,score,wts,cc,qpoints,adaptive) {
+venll10a2 <- function(par,score,wts,cc,qpoints,adaptive) {
 
     # Simplified normal density function.
     dnorm2 <- function(x,mean=0,sd=1) -(log(2 * pi) +2*log(sd)+((x-mean)/sd)^2)/2

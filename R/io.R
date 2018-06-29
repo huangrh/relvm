@@ -38,5 +38,11 @@ print.relvm <- function(object,...) {
 
 
 
+#' Pipe
+#'
+#' Pipe function from magrittr package.
+#'
+`%>%` <- magrittr:::pipe()
+
 
 

@@ -1,0 +1,31 @@
+---
+title: "Vignette Title"
+author: "Vignette Author"
+date: "`r Sys.Date()`"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Vignette Title}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r,include=FALSE}
+require(rstarating);require(relvm);require(rclus);require(cmsdata);require(reshape2)
+```
+
+```{r}
+dat17nopain     <- cms_star_rating_input_2017dec
+dat17nopain$h_comp_4_linear = NULL
+fit2 <- relvm(mstbl(dat17nopain))
+
+file <- file.path("C:/rhuang/workspace/R/starsumm/vignettes/update2018Jan/input",
+                  paste0("nopain_relvm_dec2017_","2018-06-13",".rds"))
+fit1 <- readRDS(file)
+
+```
+
+```{r}
+p1 <- predict(fit2,newpars = fit2$groups$pars)
+```
+
+

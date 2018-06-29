@@ -67,9 +67,9 @@ sub1group <- function(group,df=alldf) {
   na_row_idx<- apply(is.na(dat_tbl),1,all)
   dat_tbl   <- dat_tbl[!(na_row_idx),];
   wt_tbl    <- wt_tbl[!(na_row_idx),];
-  pid       <- df[!(na_row_idx),"provider_id",drop=FALSE]
+  ccnid       <- df[!(na_row_idx),"ccnid",drop=FALSE]
 
-  (out <- list(mstbl_std = dat_tbl, wtbl = wt_tbl,pid=pid))
+  (out <- list(mstbl_std = dat_tbl, wtbl = wt_tbl,ccnid=ccnid))
 }
 
 
