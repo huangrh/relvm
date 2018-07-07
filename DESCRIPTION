@@ -10,6 +10,7 @@ License: GPL3
 LazyData: TRUE
 RoxygenNote: 6.0.1
 Depends: R (>= 3.3.2)
+Imports: pracma
 Suggests:
     knitr,
     rmarkdown
