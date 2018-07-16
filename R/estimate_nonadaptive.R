@@ -88,7 +88,10 @@ relvm_noad <- function(object,groups=NULL,fit=list(qpoints=30,init=NULL,predict=
     hospital_score <- rstarating::sum_score(preds)
     hospital_score <- merge.data.frame(x=hospital_score,y=object$report_indicator,
                                        by='ccnid',all.x=TRUE)
-    hospital_score <- subset(hospital_score, report_indicator == 1)
+    # ************
+    # Oct. 2016 used all hospitals to run the clustering
+    # Dec. 2017 used only the valid hospitals (report_indicator == 1) to run the clustering.
+    # hospital_score <- subset(hospital_score, report_indicator == 1)
 
     # Merge factor loadings and other parametes.
     pars <- data.frame()

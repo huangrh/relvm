@@ -30,15 +30,28 @@ object  <-  x <- mstbl(x)
 # LVM model fitting. 
 # fitx       <-   relvm(x)
 
-fitx       <-   relvm_quad(x)
+fitx       <-   relvm_noad(x)  # noad <== quad
 # K-means clustering.
-sr <- rating(fitx$groups$summary_score,iter.max = 110)
+
+sr <- rating(fitx$groups$summary_score,method = "rclus", score_col="sum_score_win",iter.max = 1)
 
 # Save your data. 
 op <- out_dir("C:/rhuang/github/rstarating/inst")
 write.csv(sr$summary_score, file=file.path(op,"Oct2016_sum_score_truelvm_fit2.csv"))
 write.csv(fitx$groups$pars, file=file.path(op,"Oct2016_par_truelvm_fit2.csv"))
 write.csv(fitx$groups$preds, file=file.path(op,"Oct2016_preds_truelvm_fit2.csv"))
+
+# Compare
+cms_oct16 <- read.csv(
+    file.path(
+        "T:/Clinical Excellence/Analytics/Data Sources/cmsData/2016/20161110/Hospital_Revised_FlatFiles_20161110",
+        "Hospital General Information.csv"),
+    na.strings = "Not Available",
+    stringsAsFactors = F) %>% 
+    select('Provider.ID', "Hospital.overall.rating") %>% 
+    rename(ccnid = 'Provider.ID', cms_star="Hospital.overall.rating") %>% 
+    merge(y = sr$star,by="ccnid",all=T)
+    
 ```
 
 
