@@ -14,8 +14,6 @@ measure weights.}
 
 \item{pars}{The parameters in a data frame, including factor loading, err and
 offset, etc.}
-
-\item{mtbl}{A measure table calculated from rstarating::create_measure_tbl.}
 }
 \value{
 relvm class object, which includes the predicted group scores and the

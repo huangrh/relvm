@@ -12,7 +12,8 @@ relvm. see also relvm function.}
 
 \item{newpars}{The matrix of modified parameters (factor loadings, etc.).}
 
-\item{newdata}{The new data table.}
+\item{newdata}{The new data table. this table include standardized measure
+score and measure weight. See example below.}
 
 \item{level}{The level of confident interval. This parameter may not be used
 any more.}
@@ -25,9 +26,13 @@ Predict the group scores (random effect latent variabl) from the extimated
 parameters
 }
 \examples{
-fit <- relvm(mstbl(cmsdata::cms_star_rating_input_2017dec))
-pred<- predict(fit,newpars=fit$groups$pars) # update the newpars.
-star<-rating(x=pred$groups$summary_score,method="rclus2",score_col="sum_score",iter.max=5000)
+# predict with new parameters
+fit  <- relvm(mstbl(rstarating::cms_star_rating_input_2017dec))
+pred <- predict(fit,newpars=fit$groups$pars) # update the newpars.
+star <- rating(x=pred$groups$summary_score,method="rclus2",score_col="sum_score",iter.max=5000)
 
+# predict with new data
+newdata = list(mstbl_std = fit17$groups$mstbl_std, wtbl = fit17$groups$wtbl)
+pred_newdata <- predict(fit,newdata=newdata) # update the newpars.
 
 }

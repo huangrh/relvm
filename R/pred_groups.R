@@ -24,16 +24,21 @@
 #' @param x An object, whose class attribute is "relvms", i.e. multiple group of
 #'   relvm. see also relvm function.
 #' @param newpars The matrix of modified parameters (factor loadings, etc.).
-#' @param newdata The new data table.
+#' @param newdata The new data table. this table include standardized measure
+#'   score and measure weight. See example below.
 #' @param level The level of confident interval. This parameter may not be used
 #'   any more.
 #' @return A updated object.
 #'
 #' @examples
-#' fit <- relvm(mstbl(cmsdata::cms_star_rating_input_2017dec))
-#' pred<- predict(fit,newpars=fit$groups$pars) # update the newpars.
-#' star<-rating(x=pred$groups$summary_score,method="rclus2",score_col="sum_score",iter.max=5000)
+#' # predict with new parameters
+#' fit  <- relvm(mstbl(rstarating::cms_star_rating_input_2017dec))
+#' pred <- predict(fit,newpars=fit$groups$pars) # update the newpars.
+#' star <- rating(x=pred$groups$summary_score,method="rclus2",score_col="sum_score",iter.max=5000)
 #'
+#' # predict with new data
+#' newdata = list(mstbl_std = fit17$groups$mstbl_std, wtbl = fit17$groups$wtbl)
+#' pred_newdata <- predict(fit,newdata=newdata) # update the newpars.
 #'
 #' @export
 #'
@@ -41,19 +46,33 @@ predict.relvms <- function(x, newpars=NULL, newdata = NULL, level = 0.95) {
     begin_time = Sys.time()
     cat(toString(begin_time),": Runing predict.relvms\n")
 
-    # Find the unique measure groups.
-    input_tbl_std <- x$groups$mstbl_std
-    mtbl          <- rstarating::create_measure_tbl(input_tbl_std)
-    groups        <- unique(mtbl$group)
-
-    # merge the measure score table with the weight table, so the ccnid is matched for a hospital.
-    alldf <- merge(x$groups$mstbl_std, x$groups$wtbl, by = "ccnid", all=TRUE)
-
     # New parameters (if there is no new parameters, take the pars from the object)
     if (is.null(newpars)) newpars <- x$groups$pars
 
     # new data
-    # if (is.null(newdata)) { 0 } # to_do
+    if (!is.null(newdata)) {
+        # merge the measure score table with the weight table, so the ccnid is matched for a hospital.
+        if (exists("mstbl_std", newdata)) {
+            x$groups$mstbl_std = newdata$mstbl_std
+        } else {
+            message("Warning: newdata doesn't have mstbl_std table.")
+        }
+
+        if (exists("wtbl",      newdata)) {
+            x$groups$wtbl      = newdata$wtbl
+        } else {
+            message("Warning: newdata doesn't have wtbl table.")
+        }
+    }
+
+    # mtbl
+    mtbl = rstarating::create_measure_tbl(x$groups$mstbl_std)
+
+    # merge
+    alldf <- merge(x$groups$mstbl_std, x$groups$wtbl, by = "ccnid", all=TRUE)
+
+    # Find the unique measure groups.
+    groups        <- unique(rstarating::create_measure_tbl(alldf)[["group"]])
 
     # ---------------------------------------
     # call function pred_single_measure_group
@@ -78,7 +97,7 @@ predict.relvms <- function(x, newpars=NULL, newdata = NULL, level = 0.95) {
     hospital_score <- merge.data.frame(x=hospital_score,
                                        y=x$groups$summary_score[c("ccnid","report_indicator")],
                                        by='ccnid',all.x=TRUE)
-    hospital_score <- subset(hospital_score, report_indicator == 1)
+    # hospital_score <- subset(hospital_score, report_indicator == 1)
 
     # ---------------------------------------
     # Output
@@ -87,7 +106,7 @@ predict.relvms <- function(x, newpars=NULL, newdata = NULL, level = 0.95) {
         pars         = newpars,
         summary_score= hospital_score,
         mstbl_std    = x$groups$mstbl_std,
-        wtbl         = x$groups$object$wtbl,
+        wtbl         = x$groups$wtbl,
         predict_tag  = "predict.relvms"
     ), class="relvm")
 
@@ -108,7 +127,6 @@ predict.relvms <- function(x, newpars=NULL, newdata = NULL, level = 0.95) {
 #'   measure weights.
 #' @param pars The parameters in a data frame, including factor loading, err and
 #'   offset, etc.
-#' @param mtbl A measure table calculated from rstarating::create_measure_tbl.
 #' @return relvm class object, which includes the predicted group scores and the
 #'   corresponding standard deviations.
 #'
@@ -120,6 +138,8 @@ pred_single_measure_group <- function(group, alldf, pars, mtbl) {
     subdat    <- relvm:::sub1group(group, alldf)
     mstbl_std <- as.matrix(subdat$mstbl_std)
     wts_tbl   <- as.matrix(subdat$wtbl)
+
+
 
     # Extract the pms (factor loadings, stderr of the factor loading, etc)
     pms <- subset(pars, name %in% mtbl[mtbl$group %in% group,"name"])
