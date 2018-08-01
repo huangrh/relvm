@@ -30,7 +30,11 @@
 #'
 #' @return An list of S3 object of class "relvm" with estimated parametes.
 #' @seealso \code{\link{mstbl}}
-#' @importFrom pracma hessian
+#'
+#' @examples
+#' # require(rstarating)
+#' # To fit just one group: 'outcome_mort'
+#' fit <- relvm(mstbl(cms_star_rating_input_2017dec),groups="outcome_mort")
 #'
 #' @export
 #'
@@ -145,7 +149,7 @@ relvm_single_true <- function(group, df, init, predict) {
     #--------------------------------------------------------#
     # Fit the function
     fit <- optim(par     = init,      # Model parameter
-                 fn      = venll18, # venll11m,   # Estimation function
+                 fn      = venll18,   # venll11m,   # Estimation function
                  gr      = NULL,
                  method  = "L-BFGS-B", # "L-BFGS-B"
                  control = list(maxit=1000), # set factr=1e-8
