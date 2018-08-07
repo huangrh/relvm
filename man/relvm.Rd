@@ -7,7 +7,7 @@
 \alias{relvm-package}
 \title{Multiple Estimation Of The Random Effect Latent Variable Model Parameters}
 \usage{
-relvm(object, groups = NULL, fit = list(init = NULL))
+relvm(object, groups = NULL, fit = list(init = NULL), file = NULL)
 }
 \arguments{
 \item{object}{A mstbl object.}
@@ -19,14 +19,22 @@ case a vector of all groups will be generated accordingly.}
 term in a list. fl is the factor loading. They will be initialized
 generally if it is null. The default is a list with for all mu and one for
 others. \item predict: The default is TRUE.}}
+
+\item{file}{A rds file name to cache the results on hard drive.}
 }
 \value{
-An list of S3 object of class "relvm" with estimated parametes.
+An list of S3 object of class "relvms" with estimated parametes.
 }
 \description{
 Estimate multiple measure groups of the random effect latent variable model
 
 relvm.
+}
+\examples{
+# require(rstarating)
+# To fit just one group: 'outcome_mort'
+fit <- relvm(mstbl(cms_star_rating_input_2017dec),groups="outcome_mort")
+
 }
 \seealso{
 \code{\link{mstbl}}

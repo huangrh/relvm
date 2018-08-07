@@ -27,8 +27,10 @@
 #'   term in a list. fl is the factor loading. They will be initialized
 #'   generally if it is null. The default is a list with for all mu and one for
 #'   others. \item predict: The default is TRUE.}
+#' @param file A rds file name to cache the results on hard drive.
 #'
-#' @return An list of S3 object of class "relvm" with estimated parametes.
+#' @return An list of S3 object of class "relvms" with estimated parametes.
+#'
 #' @seealso \code{\link{mstbl}}
 #'
 #' @examples
@@ -38,75 +40,90 @@
 #'
 #' @export
 #'
-relvm <- function(object,groups=NULL,fit=list(init=NULL)) {
+relvm <- function(object,groups=NULL,fit=list(init=NULL), file = NULL) {
 
-    # -------------------------------------------------------
-    # Merge both tables of the measure score and weights.
-    alldf  <- merge(x=object$mstbl_std, y=object$wtbl,by = "ccnid",all=TRUE)
+    if (!is.null(file) && file.exists(file)) {
+        # if the cached file exists
+        allout <- readRDS(file)
+    } else {
 
-    # Check & update "groups"
-    mtbl       <- create_measure_tbl(alldf)
-    all_groups <- unique(mtbl$group)
-    if (is.null(groups)) {
-        groups <- all_groups
-    } else if (any(groups %in% all_groups)) {
-        groups <- groups[groups %in% all_groups]
-    } else stop("The group name do not match.")
+        # -------------------------------------------------------
+        # Merge both tables of the measure score and weights.
+        alldf  <- merge(x=object$mstbl_std, y=object$wtbl,by = "ccnid",all=TRUE)
 
-    # Fit control
-    fit_default   = list(init=NULL,predict=TRUE)
-    extra_default <- fit_default[!(names(fit_default) %in% names(fit))]
-    fit[names(extra_default)] <- extra_default
+        # Check & update "groups"
+        mtbl       <- create_measure_tbl(alldf)
+        all_groups <- unique(mtbl$group)
+        if (is.null(groups)) {
+            groups <- all_groups
+        } else if (any(groups %in% all_groups)) {
+            groups <- groups[groups %in% all_groups]
+        } else stop("The group name do not match.")
 
-    init    = fit[["init"]]
-    predict = fit[["predict"]]
+        # Fit control
+        fit_default   = list(init=NULL,predict=TRUE)
+        extra_default <- fit_default[!(names(fit_default) %in% names(fit))]
+        fit[names(extra_default)] <- extra_default
 
-    # ------------------------------------------------------------------#
-    # Call relvm_single
-    start_time = Sys.time()
-    cat(sprintf("Fitting start at: %-15s\n",start_time))
+        init    = fit[["init"]]
+        predict = fit[["predict"]]
 
-    allout <- sapply(groups, relvm_single_true, df=alldf,
-                     init = init, predict = predict,simplify = FALSE)
+        # ------------------------------------------------------------------#
+        # Call relvm_single
+        start_time = Sys.time()
+        cat(sprintf("Fitting start at: %-15s\n",start_time))
 
-    cat("\n","Total time: ", as.character.Date(Sys.time() - start_time),"\n")
+        allout <- sapply(groups, relvm_single_true, df=alldf,
+                         init = init, predict = predict,simplify = FALSE)
 
-    # ------------------------------------------------------------------#
-    # After Relvm:
-    # Merge the predicted group score if there is multiple group.
-    preds <- alldf[,"ccnid",drop=FALSE] # take the column "ccnid"
-    for (group in allout) {preds <- merge(x=preds,y=group$pred,by="ccnid",all=TRUE)}
-    colnames(preds) <- gsub("pred_","",colnames(preds))
+        cat("\n","Total time: ", as.character.Date(Sys.time() - start_time),"\n")
 
-    # Calculate the summary score.
-    hospital_score <- rstarating::sum_score(preds)
-    hospital_score <- merge.data.frame(x=hospital_score,y=object$report_indicator,
-                                       by='ccnid',all.x=TRUE)
-    # hospital_score <- subset(hospital_score, report_indicator == 1)
+        # ------------------------------------------------------------------#
+        # After Relvm:
+        # Merge the predicted group score if there is multiple group.
+        preds <- alldf[,"ccnid",drop=FALSE] # take the column "ccnid"
+        for (group in allout) {preds <- merge(x=preds,y=group$pred,by="ccnid",all=TRUE)}
+        colnames(preds) <- gsub("pred_","",colnames(preds))
 
-    # Merge factor loadings and other parametes.
-    pars <- data.frame()
-    for (group in allout) {pars = rbind(pars,group$par)}
+        # Calculate the summary score.
+        hospital_score <- rstarating::sum_score(preds)
+        hospital_score <- merge.data.frame(x=hospital_score,y=object$report_indicator,
+                                           by='ccnid',all.x=TRUE)
+        # hospital_score <- subset(hospital_score, report_indicator == 1)
 
-    # convergence
-    convergence<- data.frame(convergence=vapply(allout,function(x) {x$convergence},c(0)))
-    value      <- data.frame(value=vapply(allout,      function(x) x$value,c(0)))
-    message    <- data.frame(message=vapply(allout,    function(x) x$message,"0"),stringsAsFactors = FALSE)
-    counts     <- t(as.data.frame(vapply(allout,       function(x) x$counts,c(0L,0L))))
+        # Merge factor loadings and other parametes.
+        pars <- data.frame()
+        for (group in allout) {pars = rbind(pars,group$par)}
 
-    #output
-    allout$groups <- structure(list(
-        preds        = preds,
-        pars         = pars,
-        summary_score= hospital_score,
-        counts       = as.matrix(counts),
-        value        = as.matrix(value),
-        message      = as.matrix(message),
-        convergence  = as.matrix(convergence),
-        mstbl_std    = object$mstbl_std,
-        wtbl         = object$wtbl
+        # convergence
+        convergence<- data.frame(convergence=vapply(allout,function(x) {x$convergence},c(0)))
+        value      <- data.frame(value=vapply(allout,      function(x) x$value,c(0)))
+        message    <- data.frame(message=vapply(allout,    function(x) x$message,"0"),stringsAsFactors = FALSE)
+        counts     <- t(as.data.frame(vapply(allout,       function(x) x$counts,c(0L,0L))))
+
+        #output
+        allout$groups <- structure(list(
+            preds        = preds,
+            pars         = pars,
+            summary_score= hospital_score,
+            counts       = as.matrix(counts),
+            value        = as.matrix(value),
+            message      = as.matrix(message),
+            convergence  = as.matrix(convergence),
+            mstbl_std    = object$mstbl_std,
+            wtbl         = object$wtbl
         ),class="relvm")
 
+        # save the data
+        if (!is.null(file)) {
+            # check if the file directory exists. Create one if not.
+            file_dir <- dirname(file)
+            if (!dir.exists(file_dir)) file_dir_created <- dir.create(file_dir,recursive =TRUE)
+            saveRDS(allout,file=file)
+        }
+    }
+
+    # Output
     structure(allout, class="relvms")
 }
 
@@ -190,7 +207,9 @@ relvm_single_true <- function(group, df, init, predict) {
     fit$wtbl      = cbind(subdat$ccnid,wts_tbl)
 
     # Output
-    cat(" : ", as.character.Date(Sys.time() - start_time),"\n")
+    cat(" : ", as.character.Date(Sys.time() - start_time))
+    cat(", ",fit$message,       "\n")
+
     structure(fit,class="relvm")
 }
 

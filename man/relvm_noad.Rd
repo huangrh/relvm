@@ -5,7 +5,7 @@
 \title{Random Effect Latent Variable Model By Non Adaptive Quadrature Approximation}
 \usage{
 relvm_noad(object, groups = NULL, fit = list(qpoints = 30, init = NULL,
-  predict = TRUE))
+  predict = TRUE), file = NULL)
 }
 \arguments{
 \item{object}{A mstbl object.}
