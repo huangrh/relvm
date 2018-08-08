@@ -4,12 +4,12 @@
 \alias{relvm_adaptive_single}
 \title{Estimation Of The Random Effect Latent Variable Model Parameters}
 \usage{
-relvm_adaptive_single(group, df, qpoints, init, predict, adaptive)
+relvm_adaptive_single(group, df, qpoints, inits, predict, adaptive)
 }
 \arguments{
 \item{qpoints}{The numbe of the quadrature points.}
 
-\item{init}{Initial values for mu, fl, and err term in a list. fl is the
+\item{inits}{Initial values for mu, fl, and err term in a list. fl is the
 factor loading. They will be initialized generally if it is null. The
 default is a list with for all mu and one for others.}
 

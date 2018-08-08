@@ -15,6 +15,10 @@ require(rstarating);require(relvm);require(rclus);require(cmsdata);require(resha
 
 ```{r}
 dat17_h1 <- relvm(mstbl(cms_star_rating_input_2017dec),group=c("outcome_mort","outcome_readm"))
+
+fit17_h2 <- relvm(mstbl(cms_star_rating_input_2017dec),
+                  fit = list(inits=par),
+                  group=c("outcome_mort","outcome_readm"))
 ```
 
 

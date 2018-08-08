@@ -4,7 +4,7 @@
 \alias{relvm_adaptive}
 \title{Multiple Estimation Of The Random Effect Latent Variable Model Parameters}
 \usage{
-relvm_adaptive(object, groups = NULL, fit = list(qpoints = 15, init = NULL,
+relvm_adaptive(object, groups = NULL, fit = list(qpoints = 15, inits = NULL,
   predict = TRUE, adaptive = c("ad", "noad")))
 }
 \arguments{
@@ -14,7 +14,7 @@ relvm_adaptive(object, groups = NULL, fit = list(qpoints = 15, init = NULL,
 case a vector of all groups will be generated accordingly.}
 
 \item{fit}{A list of fitting parameters. \itemize{ \item qpoints: The numbe
-of the quadrature points. \item init: Initial values for mu, fl, and err
+of the quadrature points. \item inits: Initial values for mu, fl, and err
 term in a list. fl is the factor loading. They will be initialized
 generally if it is null. The default is a list with for all mu and one for
 others. \item predict: The default is TRUE. \item adaptive: noad, no

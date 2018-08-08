@@ -40,7 +40,7 @@
 #'
 #' @export
 #'
-relvm <- function(object,groups=NULL,fit=list(inits=NULL), file = NULL) {
+relvm <- function(object,groups=NULL,fit=list(init=NULL), file = NULL) {
 
     if (!is.null(file) && file.exists(file)) {
         # if the cached file exists
@@ -61,11 +61,11 @@ relvm <- function(object,groups=NULL,fit=list(inits=NULL), file = NULL) {
         } else stop("The group name do not match.")
 
         # Fit control
-        fit_default   = list(inits=NULL,predict=TRUE)
+        fit_default   = list(init=NULL,predict=TRUE)
         extra_default <- fit_default[!(names(fit_default) %in% names(fit))]
         fit[names(extra_default)] <- extra_default
 
-        inits    = fit[["inits"]]
+        init    = fit[["init"]]
         predict = fit[["predict"]]
 
         # ------------------------------------------------------------------#
@@ -74,7 +74,7 @@ relvm <- function(object,groups=NULL,fit=list(inits=NULL), file = NULL) {
         cat(sprintf("Fitting start at: %-15s\n",start_time))
 
         allout <- sapply(groups, relvm_single_true, df=alldf,
-                         inits = inits, predict = predict,simplify = FALSE)
+                         init = init, predict = predict,simplify = FALSE)
 
         cat("\n","Total time: ", as.character.Date(Sys.time() - start_time),"\n")
 
@@ -136,14 +136,14 @@ relvm <- function(object,groups=NULL,fit=list(inits=NULL), file = NULL) {
 #'
 #' @param group A measure group name.
 #' @param df The standardized measure score and measure weight table (alldf).
-#' @param inits Initial values for mu, fl, and err term in a list. fl is the
+#' @param init Initial values for mu, fl, and err term in a list. fl is the
 #'   factor loading. They will be initialized generally if it is null. The
 #'   default is a list with for all mu and one for others.
 #' @param predict The default is TRUE.
 #'
 #' @return An object of S3 class "relvm" with estimated parametes.
 #'
-relvm_single_true <- function(group, df, inits, predict) {
+relvm_single_true <- function(group, df, init, predict) {
     # -------------------------------------------------------#
     # Prepare to fit
     # start of the cycle
@@ -155,22 +155,12 @@ relvm_single_true <- function(group, df, inits, predict) {
     mstbl_std <- as.matrix(subdat$mstbl_std)
     wts_tbl   <- as.matrix(subdat$wtbl)
 
-
     # Setup and initialize the parameters
     nc <- ncol(mstbl_std);
-    init_default <- unlist(list(mu  = rep(0, nc),
-                                fl  = rep(0.7, nc),
-                                err = rep(0.8, nc)))
-
-    if (is.null(inits)) {
-        init <- init_default
-    } else {
-        inits_group <- inits[match(colnames(mstbl_std),inits$name),]
-        init <- unlist(list(mu  = inits_group[,"mu"],
-                            fl  = inits_group[,"fl"],
-                            err = inits_group[,"err"]))
-        init <- ifelse(is.na(init),init_default,init) # set as the default if missing.
-    }
+    if (is.null(init)) {
+        init <- unlist(list(mu  = rep(0, nc),
+                            fl  = rep(0.7, nc),
+                            err = rep(0.8, nc)))}
 
 
     #--------------------------------------------------------#

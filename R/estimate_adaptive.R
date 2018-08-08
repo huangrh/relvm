@@ -27,7 +27,7 @@
 #' @param groups A vector of measure group names. The default is NULL, in which
 #'   case a vector of all groups will be generated accordingly.
 #' @param fit A list of fitting parameters. \itemize{ \item qpoints: The numbe
-#'   of the quadrature points. \item init: Initial values for mu, fl, and err
+#'   of the quadrature points. \item inits: Initial values for mu, fl, and err
 #'   term in a list. fl is the factor loading. They will be initialized
 #'   generally if it is null. The default is a list with for all mu and one for
 #'   others. \item predict: The default is TRUE. \item adaptive: noad, no
@@ -42,13 +42,13 @@
 relvm_adaptive <- function(object,
                      groups=NULL,
                      fit=list(qpoints=15,
-                              init=NULL,
+                              inits=NULL,
                               predict=TRUE,
                               adaptive=c("ad","noad"))) {
 
     # -------------------------------------------------------
     # Merge both tables of the measure score and weights.
-    alldf  <- merge(x=object$mstbl_std, y=object$wtbl,by="ccnid", all=TRUE)
+    alldf  <- merge(x=object$mstbl_std, y=object$wtbl, all=TRUE)
 
     # Check & update "groups"
     mtbl       <- create_measure_tbl(alldf)
@@ -61,7 +61,7 @@ relvm_adaptive <- function(object,
 
     # Fit control default
     fit_default   <- list(qpoints = 15,
-                          init    = NULL,
+                          inits   = NULL,
                           predict = TRUE,
                           adaptive= c("ad","noad"))
     extra_default <- fit_default[!(names(fit_default) %in% names(fit))]
@@ -69,7 +69,7 @@ relvm_adaptive <- function(object,
 
     #
     qpoints = fit[["qpoints"]]
-    init    = fit[["init"]]
+    inits   = fit[["inits"]]
     predict = fit[["predict"]]
     adaptive= fit[["adaptive"]][1]
 
@@ -80,7 +80,7 @@ relvm_adaptive <- function(object,
 
     # Call relvm_single
     allout <- sapply(groups, relvm_adaptive_single, df=alldf, qpoints=qpoints,
-                      init = init, predict = predict, adaptive=adaptive,simplify = FALSE)
+                      inits = inits, predict = predict, adaptive=adaptive,simplify = FALSE)
 
     cat("\n","Total time: ", as.character.Date(Sys.time() - start_time),"\n")
     # ------------------------------------------------------------------#
@@ -124,14 +124,14 @@ relvm_adaptive <- function(object,
 #' @param mstbl_std The standized measure score table.
 #' @param wts_tbl The measure score weight table.
 #' @param qpoints The numbe of the quadrature points.
-#' @param init Initial values for mu, fl, and err term in a list. fl is the
+#' @param inits Initial values for mu, fl, and err term in a list. fl is the
 #'   factor loading. They will be initialized generally if it is null. The
 #'   default is a list with for all mu and one for others.
 #' @param predict The default is TRUE.
 #'
 #' @return An object of S3 class "relvm" with estimated parametes.
 #'
-relvm_adaptive_single <- function(group, df, qpoints,init,predict,adaptive) {
+relvm_adaptive_single <- function(group, df, qpoints,inits,predict,adaptive) {
     # -------------------------------------------------------#
     # Prepare to fit
     # start of the cycle
@@ -139,17 +139,25 @@ relvm_adaptive_single <- function(group, df, qpoints,init,predict,adaptive) {
     cat(adaptive,"-",qpoints,"qpts",": ")
     cat(sprintf("Fitting: %-15s =>",group))
 
-    # data table & weight table
-    subdat    <- sub1group(group,df)
+    # data table & weight table in a measure group.
+    subdat    <- relvm:::sub1group(group,df)
     mstbl_std <- as.matrix(subdat$mstbl_std)
     wts_tbl   <- as.matrix(subdat$wtbl)
 
     # Setup and initialize the parameters
     nc <- ncol(mstbl_std);
-    if (is.null(init)) {
-        init <- unlist(list(mu  = rep(0.5, nc),
-                            fl  = rep(0.5, nc),
-                            err = rep(0.5, nc)))
+    init_default <- unlist(list(mu  = rep(0.5, nc),
+                                fl  = rep(0.5, nc),
+                                err = rep(0.5, nc)))
+
+    if (is.null(inits)) {
+        init <- init_default
+    } else {
+        inits_group <- inits[match(colnames(mstbl_std),inits$name),]
+        init <- unlist(list(mu  = inits_group[,"mu"],
+                            fl  = inits_group[,"fl"],
+                            err = inits_group[,"err"]))
+        init <- ifelse(is.na(init),init_default,init)
     }
 
     # cc$x & cc$w
@@ -158,7 +166,7 @@ relvm_adaptive_single <- function(group, df, qpoints,init,predict,adaptive) {
     #--------------------------------------------------------#
     # Fit the function
     fit <- optim(par     = init,      # Model parameter
-                 fn      = venll10a,    # Estimation function
+                 fn      = venll10a2,    # Estimation function
                  gr      = NULL,
                  method  = "L-BFGS-B",
                  control = list(maxit=1000),
@@ -209,7 +217,7 @@ relvm_adaptive_single <- function(group, df, qpoints,init,predict,adaptive) {
 
 
 # adaptive estimate function
-venll10a <- function(par,score,wts,cc,qpoints,adaptive) {
+venll10a2 <- function(par,score,wts,cc,qpoints,adaptive) {
 
     # Simplified normal density function.
     dnorm2 <- function(x,mean=0,sd=1) -(log(2 * pi) +2*log(sd)+((x-mean)/sd)^2)/2
