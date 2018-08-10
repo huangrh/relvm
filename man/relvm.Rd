@@ -7,7 +7,8 @@
 \alias{relvm-package}
 \title{Multiple Estimation Of The Random Effect Latent Variable Model Parameters}
 \usage{
-relvm(object, groups = NULL, fit = list(inits = NULL), file = NULL)
+relvm(object, groups = NULL, fit = list(inits = NULL, use_wt = c("step2")),
+  file = NULL)
 }
 \arguments{
 \item{object}{A mstbl object.}
@@ -15,12 +16,17 @@ relvm(object, groups = NULL, fit = list(inits = NULL), file = NULL)
 \item{groups}{A vector of measure group names. The default is NULL, in which
 case a vector of all groups will be generated accordingly.}
 
-\item{fit}{A list of fitting parameters. \itemize{ \item init: Initial values for mu, fl, and err
-term in a list. fl is the factor loading. They will be initialized
-generally if it is null. The default is a list with for all mu and one for
-others. \item predict: The default is TRUE.}}
+\item{fit}{A list of fitting parameters. \itemize{ \item init: Initial values
+for mu, fl, and err term in a data frame. fl is the factor loading. They
+will be initialized generally if it is null. The default is zero for mu and
+one for the rest. \item predict: The default is TRUE, which calculate the
+group score for each hospital. \item use_wt: A vector of strings, eg.
+c("step1", "step2"), corresponding to step 1 (optimize the model
+parameters) and step 2 (predict the group score) in the latent variable
+model, respectively. For example, fit = list(use_wt = "step2") tells the program to
+ignore the weight in step 1 and only use the weight in step 2. }}
 
-\item{file}{A rds file name to cache the results on hard drive.}
+\item{file}{File name in a rds format to cache the results on hard drive.}
 }
 \value{
 An list of S3 object of class "relvms" with estimated parametes.
@@ -34,6 +40,12 @@ relvm.
 # require(rstarating)
 # To fit just one group: 'outcome_mort'
 fit <- relvm(mstbl(cms_star_rating_input_2017dec),groups="outcome_mort")
+
+# use weight in step 2 only (by default, weigt are used in step 1 and step 2)
+fit <- relvm(mstbl(cms_star_rating_input_2017dec),groups="outcome_mort", fit=list(use_wt="step2"))
+
+# Use weight in step 1 only (for test purpose only).
+fit <- relvm(mstbl(cms_star_rating_input_2017dec),groups="outcome_mort", fit=list(use_wt="step1"))
 
 }
 \seealso{

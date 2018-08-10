@@ -22,6 +22,29 @@ fit17_h2 <- relvm(mstbl(cms_star_rating_input_2017dec),
 ```
 
 
+```{r}
+fit2 <- . <- cms_star_rating_input_2017dec %>% 
+    mstbl() %>% 
+    relvm(groups = "outcome_safty",fit=list(use_wt="step1"))
+```
+
+```{r}
+# ..$par:
+#            name         fl          mu       err
+# 1         hai_1 0.54133498 0.042253356 0.7311303
+# 2         hai_2 0.32944444 0.022740066 0.8270549
+# 3         hai_3 0.18192042 0.016172123 0.9417625
+# 4         hai_4 0.22385602 0.020334015 0.9203335
+# 5         hai_5 0.36540009 0.038998359 0.8598146
+# 6         hai_6 0.12652098 0.019557971 0.9067149
+# 7 comp_hip_knee 0.05225832 0.004813221 0.9805361
+# 8 psi_90_safety 0.09414437 0.012856346 0.9418563
+
+# ..$value:
+#                  value
+# outcome_safty 23792.91
+```
+
 
 
 

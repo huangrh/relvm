@@ -23,16 +23,11 @@
 #' @param object A mstbl object.
 #' @param groups A vector of measure group names. The default is NULL, in which
 #'   case a vector of all groups will be generated accordingly.
-#' @param fit A list of fitting parameters. \itemize{ \item init: Initial values
-#'   for mu, fl, and err term in a data frame. fl is the factor loading. They
-#'   will be initialized generally if it is null. The default is zero for mu and
-#'   one for the rest. \item predict: The default is TRUE, which calculate the
-#'   group score for each hospital. \item use_wt: A vector of strings, eg.
-#'   c("step1", "step2"), corresponding to step 1 (optimize the model
-#'   parameters) and step 2 (predict the group score) in the latent variable
-#'   model, respectively. For example, fit = list(use_wt = "step2") tells the program to
-#'   ignore the weight in step 1 and only use the weight in step 2. }
-#' @param file File name in a rds format to cache the results on hard drive.
+#' @param fit A list of fitting parameters. \itemize{ \item init: Initial values for mu, fl, and err
+#'   term in a list. fl is the factor loading. They will be initialized
+#'   generally if it is null. The default is a list with for all mu and one for
+#'   others. \item predict: The default is TRUE.}
+#' @param file A rds file name to cache the results on hard drive.
 #'
 #' @return An list of S3 object of class "relvms" with estimated parametes.
 #'
@@ -43,15 +38,9 @@
 #' # To fit just one group: 'outcome_mort'
 #' fit <- relvm(mstbl(cms_star_rating_input_2017dec),groups="outcome_mort")
 #'
-#' # use weight in step 2 only (by default, weigt are used in step 1 and step 2)
-#' fit <- relvm(mstbl(cms_star_rating_input_2017dec),groups="outcome_mort", fit=list(use_wt="step2"))
-#'
-#' # Use weight in step 1 only (for test purpose only).
-#' fit <- relvm(mstbl(cms_star_rating_input_2017dec),groups="outcome_mort", fit=list(use_wt="step1"))
-#'
 #' @export
 #'
-relvm <- function(object,groups=NULL,fit=list(inits=NULL,use_wt=c("step2")), file = NULL) {
+relvm <- function(object,groups=NULL,fit=list(inits=NULL), file = NULL) {
 
     if (!is.null(file) && file.exists(file)) {
         # if the cached file exists
@@ -72,26 +61,20 @@ relvm <- function(object,groups=NULL,fit=list(inits=NULL,use_wt=c("step2")), fil
         } else stop("The group name do not match.")
 
         # Fit control
-        fit_default   = list(inits=NULL,predict=TRUE,use_wt=c("step1","step2"))
+        fit_default   = list(inits=NULL,predict=TRUE)
         extra_default <- fit_default[!(names(fit_default) %in% names(fit))]
         fit[names(extra_default)] <- extra_default
 
         inits    = fit[["inits"]]
-        predict  = fit[["predict"]]
-        use_wt   = fit[["use_wt"]]
+        predict = fit[["predict"]]
 
         # ------------------------------------------------------------------#
         # Call relvm_single
         start_time = Sys.time()
         cat(sprintf("Fitting start at: %-15s\n",start_time))
 
-        allout <- sapply(groups,
-                         relvm_single_true,
-                         df       =   alldf,
-                         inits    =   inits,
-                         predict  =   predict,
-                         use_wt   =   use_wt,
-                         simplify =   FALSE)
+        allout <- sapply(groups, relvm_single_true, df=alldf,
+                         inits = inits, predict = predict,simplify = FALSE)
 
         cat("\n","Total time: ", as.character.Date(Sys.time() - start_time),"\n")
 
@@ -157,45 +140,22 @@ relvm <- function(object,groups=NULL,fit=list(inits=NULL,use_wt=c("step2")), fil
 #'   factor loading. They will be initialized generally if it is null. The
 #'   default is a list with for all mu and one for others.
 #' @param predict The default is TRUE.
-#' @param use_wt A vector of strings, possible contains "step1" and "step2",
-#'   corresponding to step 1 (optimize the model parameters) and step 2 (predict
-#'   the group score) in the latent variable model, respectively.
 #'
 #' @return An object of S3 class "relvm" with estimated parametes.
 #'
-relvm_single_true <- function(group, df, inits, predict, use_wt) {
+relvm_single_true <- function(group, df, inits, predict) {
     # -------------------------------------------------------#
     # Prepare to fit
     # start of the cycle
     start_time = Sys.time()
     cat(sprintf("Fitting: %-15s =>",group))
 
-    # -------------------------------------------------------#
     # data table & weight table
-    subdat    <- relvm:::sub1group(group,df)
+    subdat    <- sub1group(group,df)
     mstbl_std <- as.matrix(subdat$mstbl_std)
-    wts_tbl   <- wts_tbl_step1 <- wts_tbl_step2 <- as.matrix(subdat$wtbl)
+    wts_tbl   <- as.matrix(subdat$wtbl)
 
 
-    # -------------------------------------------------------#
-    # Measure weighting in step 1 and step 2
-    #
-    # if not use wt in step 1, just set the weight to one.
-    #
-    if (!("step1" %in% use_wt)) {
-        wts_tbl_step1 = lapply(as.data.frame(wts_tbl_step1), function(x) {
-            ifelse(is.na(x),NA,1)
-        }) %>% as.data.frame() %>% as.matrix()
-    }
-
-    # if no use use wt in step2
-    if (!("step2" %in% use_wt)) {
-        wts_tbl_step2 = lapply(as.data.frame(wts_tbl_step2), function(x) {
-            ifelse(is.na(x),NA,1)
-        }) %>% as.data.frame() %>% as.matrix()
-    }
-
-    # -------------------------------------------------------#
     # Setup and initialize the parameters
     nc <- ncol(mstbl_std);
     init_default <- unlist(list(mu  = rep(0, nc),
@@ -222,7 +182,7 @@ relvm_single_true <- function(group, df, inits, predict, use_wt) {
                  control = list(maxit=1000), # set factr=1e-8
                  hessian = FALSE,
                  score   = mstbl_std,
-                 wts     = wts_tbl_step1)
+                 wts     = wts_tbl)
 
     #--------------------------------------------------------#
     # Output the fitting
@@ -236,7 +196,7 @@ relvm_single_true <- function(group, df, inits, predict, use_wt) {
                               row.names=NULL)
     # Prediction
     if (identical(predict, TRUE)) {
-        pred_out          <- relvm:::pred(mstbl_std, wts_tbl_step2, pms=fit$par);
+        pred_out          <- relvm:::pred(mstbl_std,wts_tbl,pms=fit$par);
 
         colnames(pred_out)<- paste(colnames(pred_out),group,sep="_")
         pred_out          <- cbind(subdat$ccnid,pred_out)
@@ -253,10 +213,8 @@ relvm_single_true <- function(group, df, inits, predict, use_wt) {
                               mu = init[grepl("mu", init_names)],
                               err= init[grepl("err",init_names)], row.names=NULL)
 
-    fit$mstbl_std = cbind(subdat$ccnid, mstbl_std)
-    fit$wtbl_step1= cbind(subdat$ccnid, wts_tbl_step1)
-    fit$wtbl_step2= cbind(subdat$ccnid, wts_tbl_step2)
-    fit$wtbl      = cbind(subdat$ccnid, wts_tbl)
+    fit$mstbl_std = cbind(subdat$ccnid,mstbl_std)
+    fit$wtbl      = cbind(subdat$ccnid,wts_tbl)
 
     # Output
     cat(" : ", as.character.Date(Sys.time() - start_time))
