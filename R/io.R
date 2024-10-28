@@ -42,7 +42,7 @@ print.relvm <- function(object,...) {
 #'
 #' Pipe function from magrittr package.
 #'
-`%>%` <- magrittr:::pipe()
+`%>%` <- magrittr:::`%>%`
 
 
 
